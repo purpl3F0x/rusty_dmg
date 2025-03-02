@@ -1,0 +1,13 @@
+[workspace]
+resolver = "2"
+
+members = [
+    "dmg", "mbc",
+]
+
+[profile.release-lto]
+codegen-units = 1
+inherits = "release"
+lto = "fat"
+opt-level = 3
+panic = "abort"
