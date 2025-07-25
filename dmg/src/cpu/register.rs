@@ -8,19 +8,10 @@ const HIGH_POSITION: isize = 1;
 #[cfg(target_endian = "big")]
 const HIGH_POSITION: isize = 0;
 
-// use std::ops::AddAssign;
-
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub struct Reg {
     value: u16,
 }
-
-// impl Default for Reg {
-//     #[inline]
-//     fn default() -> Reg {
-//         Reg { value: 0 }
-//     }
-// }
 
 impl Reg {
     pub fn new() -> Self {
@@ -35,12 +26,12 @@ impl Reg {
         self.get_offset_byte(HIGH_POSITION)
     }
 
-    pub fn low(&mut self) -> u8 {
-        *self.get_offset_byte(LOW_POSITION)
+    pub fn low(&self) -> u8 {
+        *self.get_offset_byte_imm(LOW_POSITION)
     }
 
-    pub fn high(&mut self) -> u8 {
-        *self.get_offset_byte(HIGH_POSITION)
+    pub fn high(&self) -> u8 {
+        *self.get_offset_byte_imm(HIGH_POSITION)
     }
 
     pub fn value_mut(&mut self) -> &mut u16 {
@@ -56,6 +47,14 @@ impl Reg {
         unsafe {
             let ptr = (&mut self.value as *mut u16) as *mut u8;
             return &mut *(ptr.offset(offset));
+        }
+    }
+
+    #[inline]
+    fn get_offset_byte_imm(&self, offset: isize) -> &u8 {
+        unsafe {
+            let ptr = (&self.value as *const u16) as *const u8;
+            return &*(ptr.offset(offset));
         }
     }
 }

@@ -1,13 +1,17 @@
 [workspace]
 resolver = "2"
 
-members = [
-    "dmg", "mbc",
-]
+members = ["dmg", "frontend"]
 
-[profile.release-lto]
-codegen-units = 1
-inherits = "release"
+[profile.release]
+opt-level = 2
 lto = "fat"
-opt-level = 3
 panic = "abort"
+overflow-checks = false
+strip = true
+
+
+[profile.dev]
+opt-level = 3
+debug = "full"
+lto = "none"

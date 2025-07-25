@@ -1,22 +1,11 @@
-use super::Reg;
+use crate::{memory::mmu, ppu};
 
-const ZERO_FLAG: u8 = 0x80;
-const SUB_FLAG: u8 = 0x40;
-const HALF_FLAG: u8 = 0x20;
-const CARRY_FLAG: u8 = 0x10;
+use super::*;
 
-#[derive(Debug)]
-pub struct CPU {
-    af: Reg,
-    bc: Reg,
-    de: Reg,
-    hl: Reg,
-    pc: u16,
-    sp: u16,
-}
+use log::*;
 
 impl CPU {
-    pub fn new() -> CPU {
+    pub fn new(mmu: Rc<RefCell<MMU>>) -> CPU {
         CPU {
             af: Reg::new(),
             bc: Reg::new(),
@@ -24,7 +13,20 @@ impl CPU {
             hl: Reg::new(),
             pc: 0u16,
             sp: 0u16,
+            mmu: mmu,
+            mode: CPUMode::Normal,
+            t_cycles: 0,
+            ime: false,
         }
+    }
+
+    pub fn init(&mut self) {
+        *self.af.value_mut() = 0x01B0; // A = 0x01, F = 0xB0 (Z = 1, N = 0, H = 1, C = 0)
+        *self.bc.value_mut() = 0x0013; // B = 0x00, C = 0x13
+        *self.de.value_mut() = 0x00D8; // D = 0x00, E = 0xD8
+        *self.hl.value_mut() = 0x014D; // H = 0x01, L = 0x4D
+        self.pc = 0x0100; // Start at address 0x0100
+        self.sp = 0xFFFE; // Stack pointer initialized to top of RAM
     }
 
     /* Mutable 8-bit register methods  */
@@ -33,7 +35,7 @@ impl CPU {
         self.af.high_mut()
     }
 
-    pub fn h_mut(&mut self) -> &mut u8 {
+    pub fn f_mut(&mut self) -> &mut u8 {
         self.af.low_mut()
     }
 
@@ -53,47 +55,49 @@ impl CPU {
         self.de.low_mut()
     }
 
-    pub fn l_mut(&mut self) -> &mut u8 {
+    pub fn h_mut(&mut self) -> &mut u8 {
         self.hl.high_mut()
     }
 
-    pub fn f_mut(&mut self) -> &mut u8 {
+    pub fn l_mut(&mut self) -> &mut u8 {
         self.hl.low_mut()
     }
 
     /* Immutable 8-bit register methods  */
 
-    pub fn a(&mut self) -> u8 {
+    pub fn a(&self) -> u8 {
         self.af.high()
     }
 
-    pub fn h(&mut self) -> u8 {
+    pub fn f(&self) -> u8 {
         self.af.low()
     }
 
-    pub fn b(&mut self) -> u8 {
+    pub fn b(&self) -> u8 {
         self.bc.high()
     }
 
-    pub fn c(&mut self) -> u8 {
+    pub fn c(&self) -> u8 {
         self.bc.low()
     }
 
-    pub fn d(&mut self) -> u8 {
+    pub fn d(&self) -> u8 {
         self.de.high()
     }
 
-    pub fn e(&mut self) -> u8 {
+    pub fn e(&self) -> u8 {
         self.de.low()
     }
 
-    pub fn l(&mut self) -> u8 {
+    pub fn h(&self) -> u8 {
         self.hl.high()
     }
 
-    pub fn f(&mut self) -> u8 {
+    pub fn l(&self) -> u8 {
         self.hl.low()
     }
+
+    /* Flag operations */
 
     pub fn set_flag(&mut self, flag: u8) {
         *self.f_mut() |= flag;
@@ -111,191 +115,187 @@ impl CPU {
         }
     }
 
-    pub fn get_flag(&mut self, flag: u8) -> bool {
+    pub fn get_flag(&self, flag: u8) -> bool {
         self.f() & flag != 0
     }
 
-    /*******************************************/
-    /* 8-bit Arithmetic and Logical operations */
-    /*******************************************/
+    /* Clock Ticks */
 
-    fn add_a(&mut self, value: u8) {
-        let a = self.a();
-        let result = a.wrapping_add(value);
-
-        self.update_flag(ZERO_FLAG, result == 0);
-        self.clear_flag(SUB_FLAG);
-        self.update_flag(HALF_FLAG, (a & 0xF) + (value & 0xF) > 0xF);
-        self.update_flag(CARRY_FLAG, (a as u16 + value as u16) > 0xFF);
-
-        *self.a_mut() = result;
+    pub fn tick(&mut self) {
+        self.mmu.borrow_mut().ppu.tick();
     }
 
-    fn adc_a(&mut self, value: u8) {
-        let a = self.a();
-        let carry = if self.get_flag(CARRY_FLAG) { 1 } else { 0 };
-        let result = a.wrapping_add(value).wrapping_add(carry);
+    pub fn tick4(&mut self) {
+        self.t_cycles += 4;
 
-        self.update_flag(ZERO_FLAG, result == 0);
-        self.clear_flag(SUB_FLAG);
-        self.update_flag(HALF_FLAG, (a & 0xF) + (value & 0xF) + carry > 0xF);
-        self.update_flag(CARRY_FLAG, (a as u16 + value as u16 + carry as u16) > 0xFF);
+        self.mmu.borrow_mut().tick();
 
-        *self.a_mut() = result;
-    }
+        let dma = self.mmu.borrow().dma.clone();
 
-    fn sub_a(&mut self, value: u8) {
-        let a = self.a();
-        let result = a.wrapping_sub(value);
+        dma.borrow_mut().tick();
 
-        self.update_flag(ZERO_FLAG, result == 0);
-        self.set_flag(SUB_FLAG);
-        self.update_flag(HALF_FLAG, (a & 0xF) < (value & 0xF));
-        self.update_flag(CARRY_FLAG, (a as u16) < (value as u16));
 
-        *self.a_mut() = result;
-    }
-
-    fn sbc_a(&mut self, value: u8) {
-        let a = self.a();
-        let carry = if self.get_flag(CARRY_FLAG) { 1 } else { 0 };
-        let result = a.wrapping_sub(value).wrapping_sub(carry);
-
-        self.update_flag(ZERO_FLAG, result == 0);
-        self.set_flag(SUB_FLAG);
-        self.update_flag(HALF_FLAG, (a & 0xF) < (value & 0xF) + carry);
-        self.update_flag(CARRY_FLAG, (a as u16) < (value as u16) + carry as u16);
-
-        *self.a_mut() = result;
-    }
-
-    fn inc(&mut self, register: &mut u8) {
-        *register = register.wrapping_add(1);
-
-        self.update_flag(ZERO_FLAG, *register == 0);
-        self.clear_flag(SUB_FLAG);
-        self.update_flag(HALF_FLAG, (*register & 0xF) == 0xF);
-    }
-
-    fn inc_hl(&mut self) {
-        !unimplemented!()
-    }
-
-    fn dec(&mut self, register: &mut u8) {
-        *register = register.wrapping_sub(1);
-
-        self.update_flag(ZERO_FLAG, *register == 0);
-        self.set_flag(SUB_FLAG);
-        self.update_flag(HALF_FLAG, (*register & 0xF) == 0xF);
-    }
-
-    fn dec_hl(&mut self) {
-        !unimplemented!()
-    }
-
-    fn and_a(&mut self, value: u8) {
-        let result = self.a() & value;
-
-        self.update_flag(ZERO_FLAG, result == 0);
-        self.clear_flag(SUB_FLAG);
-        self.set_flag(HALF_FLAG);
-        self.clear_flag(CARRY_FLAG);
-
-        *self.a_mut() = result;
-    }
-
-    fn or_a(&mut self, value: u8) {
-        let result = self.a() | value;
-
-        self.update_flag(ZERO_FLAG, result == 0);
-        self.clear_flag(SUB_FLAG);
-        self.clear_flag(HALF_FLAG);
-        self.clear_flag(CARRY_FLAG);
-
-        *self.a_mut() = result;
-    }
-
-    fn xor_a(&mut self, value: u8) {
-        let result = self.a() ^ value;
-
-        self.update_flag(ZERO_FLAG, result == 0);
-        self.clear_flag(SUB_FLAG);
-        self.clear_flag(HALF_FLAG);
-        self.clear_flag(CARRY_FLAG);
-
-        *self.a_mut() = result;
-    }
-
-    fn ccf(&mut self) {
-        self.clear_flag(SUB_FLAG);
-        self.clear_flag(HALF_FLAG);
-        let carry = self.get_flag(CARRY_FLAG);
-        self.update_flag(CARRY_FLAG, !carry);
-    }
-
-    fn scf(&mut self) {
-        self.clear_flag(SUB_FLAG);
-        self.clear_flag(HALF_FLAG);
-        self.set_flag(CARRY_FLAG);
-    }
-
-    fn daa(&mut self) {
-        // TODO: Check if this is correct
-
-        let mut a = self.a();
-        let mut adjust = 0;
-        let mut carry = self.get_flag(CARRY_FLAG);
-        let half_carry = self.get_flag(HALF_FLAG);
-        let subtract = self.get_flag(SUB_FLAG);
-
-        if half_carry || (!subtract && (a & 0xF) > 9) {
-            adjust |= 0x06;
+        for _ in 0..4 {
+            self.tick();
         }
-        if carry || (!subtract && a > 0x99) {
-            adjust |= 0x60;
-            carry = true;
-        }
+    }
 
-        if subtract {
-            a = a.wrapping_sub(adjust);
+    /// returns the new flag value that should be set
+    #[inline(always)]
+    pub fn handle_interupt(&mut self, addr: u8) -> bool {
+        self.mode = CPUMode::Normal;
+
+        if self.ime == false {
+            self.mode = CPUMode::Normal;
+            return true;
         } else {
-            a = a.wrapping_add(adjust);
+            self.ime = false;
+            self.tick4();
+            self.tick4();
+            // Push current PC onto the stack
+            self.sp = self.sp.wrapping_sub(1);
+            self.write_byte(self.sp, (self.pc >> 8) as u8);
+            self.sp = self.sp.wrapping_sub(1);
+            self.write_byte(self.sp, self.pc as u8);
+
+            // Set PC to the new address
+            self.pc = addr as u16;
+            self.tick4();
+
+            return false;
+        }
+    }
+
+    pub fn do_step(&mut self) {
+        if self.mode == CPUMode::Normal {
+            self.run_instr();
+        } else {
+            self.tick4();
         }
 
-        self.update_flag(ZERO_FLAG, a == 0);
-        self.clear_flag(HALF_FLAG);
-        self.update_flag(CARRY_FLAG, carry);
+        if self.ime || (self.mode != CPUMode::Normal) {
+            let mmu = self.mmu.borrow();
+            let ic_ref = mmu.ic.clone();
+            let ic = ic_ref.borrow();
 
-        *self.a_mut() = a;
+            let flags = ic.interrupt_enable & ic.interrupt_flag;
+            drop(ic);
+            drop(mmu);
+
+            if flags.vblank() {
+                debug!("VBlank interrupt");
+                debug!("PPU Tick: {}", self.mmu.borrow().ppu.t_cycles);
+                let f = self.handle_interupt(0x40);
+                ic_ref.borrow_mut().interrupt_flag.set_vblank(f);
+            } else if flags.lcd() {
+                debug!("LCD interrupt");
+                let f = self.handle_interupt(0x48);
+                ic_ref.borrow_mut().interrupt_flag.set_lcd(f);
+            } else if flags.timer() {
+                debug!("Timer interrupt");
+                let f = self.handle_interupt(0x50);
+                ic_ref.borrow_mut().interrupt_flag.set_timer(f);
+            } else if flags.serial() {
+                debug!("Serial interrupt");
+                let f = self.handle_interupt(0x58);
+                ic_ref.borrow_mut().interrupt_flag.set_serial(f);
+            } else if flags.joypad() {
+                debug!("Joypad interrupt");
+                let f = self.handle_interupt(0x60);
+                ic_ref.borrow_mut().interrupt_flag.set_joypad(f);
+            }
+        }
     }
 
-    fn cpl(&mut self) {
-        *self.a_mut() = !self.a();
-        self.set_flag(SUB_FLAG);
-        self.set_flag(HALF_FLAG);
+    /* Helper methods */
+    pub fn peek_opcode(&self) -> u8 {
+        self.mmu.borrow().read(self.pc)
     }
+}
 
-    /*******************************************/
-    /*            16-bit Arithmetic            */
-    /*******************************************/
+use std::fmt;
 
-    fn inc_16(&mut self, register: &mut u16) {
-        *register = register.wrapping_add(1);
+impl fmt::Display for CPU {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            f,
+            "PC: {:04X} SP: {:04X}\
+            A: {:02X} F: {:02X} \
+            B: {:02X} C: {:02X} \
+            D: {:02X} E: {:02X} \
+            H: {:02X} L: {:02X}",
+            self.pc,
+            self.sp,
+            self.a(),
+            self.f(),
+            self.b(),
+            self.c(),
+            self.d(),
+            self.e(),
+            self.h(),
+            self.l(),
+        )
     }
+}
 
-    fn dec_16(&mut self, register: &mut u16) {
-        *register = register.wrapping_sub(1);
-    }
+#[macro_export]
+macro_rules! read_register {
+    ($self:ident, $reg:expr) => {
+        match $reg {
+            Register8::A => $self.a(),
+            Register8::B => $self.b(),
+            Register8::C => $self.c(),
+            Register8::D => $self.d(),
+            Register8::E => $self.e(),
+            Register8::H => $self.h(),
+            Register8::L => $self.l(),
+            Register8::IndirectHL => $self.read_byte($self.hl.value()),
+        }
+    };
+    () => {};
+}
 
-    fn add_hl(&mut self, value: u16) {
-        // TODO: Check if this is correct
-        let hl = self.hl.value();
-        let result = hl as u32 + value as u32;
+#[macro_export]
+macro_rules! write_register {
+    ($self:ident, $reg:expr, $value:expr) => {
+        match $reg {
+            Register8::A => *$self.a_mut() = $value,
+            Register8::B => *$self.b_mut() = $value,
+            Register8::C => *$self.c_mut() = $value,
+            Register8::D => *$self.d_mut() = $value,
+            Register8::E => *$self.e_mut() = $value,
+            Register8::H => *$self.h_mut() = $value,
+            Register8::L => *$self.l_mut() = $value,
+            Register8::IndirectHL => $self.write_byte($self.hl.value(), $value),
+        }
+    };
+    () => {};
+}
 
-        self.clear_flag(SUB_FLAG);
-        self.update_flag(HALF_FLAG, (hl & 0xFFF) + (value & 0xFFF) > 0xFFF);
-        self.update_flag(CARRY_FLAG, result > 0xFFFF);
+#[macro_export]
+macro_rules! read_register16 {
+    ($self:ident, $reg:expr) => {
+        match $reg {
+            Register16::AF => $self.af.value(),
+            Register16::BC => $self.bc.value(),
+            Register16::DE => $self.de.value(),
+            Register16::HL => $self.hl.value(),
+            Register16::SP => $self.sp,
+            Register16::PC => $self.pc,
+        }
+    };
+}
 
-        *self.hl.value_mut() = result as u16;
-    }
+#[macro_export]
+macro_rules! write_register16 {
+    ($self:ident, $reg:expr, $value:expr) => {
+        match $reg {
+            Register16::AF => *$self.af.value_mut() = $value,
+            Register16::BC => *$self.bc.value_mut() = $value,
+            Register16::DE => *$self.de.value_mut() = $value,
+            Register16::HL => *$self.hl.value_mut() = $value,
+            Register16::SP => $self.sp = $value,
+            Register16::PC => $self.pc = $value,
+        }
+    };
 }

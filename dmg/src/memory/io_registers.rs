@@ -1,0 +1,83 @@
+pub const P1_JOYP: u16 = 0xFF00;
+pub const SB: u16 = 0xFF01;
+pub const SC: u16 = 0xFF02;
+pub const DIV: u16 = 0xFF04;
+pub const TIMA: u16 = 0xFF05;
+pub const TMA: u16 = 0xFF06;
+pub const TAC: u16 = 0xFF07;
+pub const IF: u16 = 0xFF0F;
+pub const NR10: u16 = 0xFF10;
+pub const NR11: u16 = 0xFF11;
+pub const NR12: u16 = 0xFF12;
+pub const NR13: u16 = 0xFF13;
+pub const NR14: u16 = 0xFF14;
+pub const NR21: u16 = 0xFF16;
+pub const NR22: u16 = 0xFF17;
+pub const NR23: u16 = 0xFF18;
+pub const NR24: u16 = 0xFF19;
+pub const NR30: u16 = 0xFF1A;
+pub const NR31: u16 = 0xFF1B;
+pub const NR32: u16 = 0xFF1C;
+pub const NR33: u16 = 0xFF1D;
+pub const NR34: u16 = 0xFF1E;
+pub const NR41: u16 = 0xFF20;
+pub const NR42: u16 = 0xFF21;
+pub const NR43: u16 = 0xFF22;
+pub const NR44: u16 = 0xFF23;
+pub const NR50: u16 = 0xFF24;
+pub const NR51: u16 = 0xFF25;
+pub const NR52: u16 = 0xFF26;
+pub const WAVE_RAM_0: u16 = 0xFF30;
+pub const WAVE_RAM_1: u16 = 0xFF31;
+pub const WAVE_RAM_2: u16 = 0xFF32;
+pub const WAVE_RAM_3: u16 = 0xFF33;
+pub const WAVE_RAM_4: u16 = 0xFF34;
+pub const WAVE_RAM_5: u16 = 0xFF35;
+pub const WAVE_RAM_6: u16 = 0xFF36;
+pub const WAVE_RAM_7: u16 = 0xFF37;
+pub const WAVE_RAM_8: u16 = 0xFF38;
+pub const WAVE_RAM_9: u16 = 0xFF39;
+pub const WAVE_RAM_A: u16 = 0xFF3A;
+pub const WAVE_RAM_B: u16 = 0xFF3B;
+pub const WAVE_RAM_C: u16 = 0xFF3C;
+pub const WAVE_RAM_D: u16 = 0xFF3D;
+pub const WAVE_RAM_E: u16 = 0xFF3E;
+pub const WAVE_RAM_F: u16 = 0xFF3F;
+pub const LCDC: u16 = 0xFF40;
+pub const STAT: u16 = 0xFF41;
+pub const SCY: u16 = 0xFF42;
+pub const SCX: u16 = 0xFF43;
+pub const LY: u16 = 0xFF44;
+pub const LYC: u16 = 0xFF45;
+pub const DMA: u16 = 0xFF46;
+pub const BGP: u16 = 0xFF47;
+pub const OBP0: u16 = 0xFF48;
+pub const OBP1: u16 = 0xFF49;
+pub const WY: u16 = 0xFF4A;
+pub const WX: u16 = 0xFF4B;
+pub const KEY0_SYS: u16 = 0xFF4C;
+pub const KEY1_SPD: u16 = 0xFF4D;
+pub const VBK: u16 = 0xFF4F;
+pub const R_BANK: u16 = 0xFF50;
+pub const HDMA1: u16 = 0xFF51;
+pub const HDMA2: u16 = 0xFF52;
+pub const HDMA3: u16 = 0xFF53;
+pub const HDMA4: u16 = 0xFF54;
+pub const HDMA5: u16 = 0xFF55;
+pub const RP: u16 = 0xFF56;
+pub const BCPS_BGPI: u16 = 0xFF68;
+pub const BCPD_BGPD: u16 = 0xFF69;
+pub const OCPS_OBPI: u16 = 0xFF6A;
+pub const OCPD_OBPD: u16 = 0xFF6B;
+pub const OPRI: u16 = 0xFF6C;
+pub const SVBK_WBK: u16 = 0xFF70;
+pub const PCM12: u16 = 0xFF76;
+pub const PCM34: u16 = 0xFF77;
+pub const IE: u16 = 0xFFFF;
+
+pub struct IORegisters {
+    pub joypad: u8,
+    pub serial: u8,
+    pub timer: u8,
+    pub dma: u8,
+}

@@ -4,3 +4,5 @@
 
 Yet another Gameboy Emulator, written in Rust
 
+Passes Blargg's test ROMs. 😃
+

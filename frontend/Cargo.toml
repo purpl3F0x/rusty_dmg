@@ -1,0 +1,23 @@
+[package]
+name = "frontend"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+dmg = { path = "../dmg" }
+egui = "0.32"
+eframe = { version = "0.32", default-features = false, features = [
+    "accesskit",     # Make egui compatible with screen readers. NOTE: adds a lot of dependencies.
+    "default_fonts", # Embed the default egui fonts.
+    "glow",          # Use the glow rendering backend. Alternative: "wgpu".
+    "persistence",   # Enable restoring app state when restarting the app.
+    "wayland",       # To support Linux (and CI)
+    "x11",           # To support older Linux distributions (restores one of the default features)
+] }
+log = "*"
+flexi_logger = { version = "0.31", features = ["async"] }
+serde = { version = "1.0.219", features = ["derive"] }
+winit = "0.30.11"
+# egui_tool_windows = { version = "0.2.0", features = ["persistence", "serde"] }
+# wgpu = "26.0.1"
+# pixels = "0.15.0"

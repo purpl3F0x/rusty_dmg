@@ -1,2 +1,8 @@
 debug/
 target/
+.VSCodeCounter/
+
+*.log
+*.bin
+*.gb
+docs/

@@ -1,0 +1,15 @@
+[package]
+name = "mbc"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+byteorder = ">=1.5.0"
+
+[lib]
+name = "mbc"
+path = "src/lib.rs"
+
+[[bin]]
+name = "mbc-info"
+path = "src/bin/mbc-info.rs"
