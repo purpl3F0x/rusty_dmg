@@ -1,11 +1,14 @@
 use crate::memory::InterruptController;
 
-use std::cell::{RefCell, RefMut, UnsafeCell};
-use std::rc::{Rc, Weak};
+use std::cell::RefCell;
+use std::rc::Rc;
 
 use bitfield::bitfield;
 
+pub mod color32;
 pub mod ppu;
+
+pub use color32::*;
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum PPUMode {
@@ -88,7 +91,7 @@ pub struct PPU {
     line_counter: u16,
 
     pub scan_line: u8,
-    pub frame_buffer: Vec<u32>,
+    pub frame_buffer: [Color32; 160 * 144],
     obj_scanline: [OAMEntry<[u8; 4]>; 10],
 
     pub frame_ready: bool,
@@ -96,5 +99,3 @@ pub struct PPU {
 
     pub ic: Rc<RefCell<InterruptController>>,
 }
-
-

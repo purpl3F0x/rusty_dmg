@@ -14,7 +14,6 @@ impl CPU {
         self.mmu.borrow_mut().write(addr, byte);
     }
 
-
     #[inline(always)]
     pub(super) fn read_instruction(&mut self) -> u8 {
         let byte = self.read_byte(self.pc);

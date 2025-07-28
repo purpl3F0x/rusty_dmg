@@ -73,7 +73,6 @@ pub struct MBC {
     mbc: Box<dyn MBCTrait>,
 }
 
-#[inline]
 fn get_mbc(rom: Vec<u8>) -> Box<dyn MBCTrait> {
     let ty = rom[0x147];
     let ram_size = match rom[0x149] {

@@ -2,7 +2,6 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 use super::memory::mmu::MMU;
-use super::ppu::PPU;
 
 mod register;
 use register::*;

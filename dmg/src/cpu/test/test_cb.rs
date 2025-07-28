@@ -124,7 +124,7 @@ mod test_cb {
         };
     }
 
-    macro_rules! test_rr {  
+    macro_rules! test_rr {
         ($instruction:expr, $reg:expr) => {
             paste! {
                     #[test]

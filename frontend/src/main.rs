@@ -1,24 +1,26 @@
 mod app;
 pub use app::TemplateApp;
 
+use dmg::ppu::IntoRawBytes;
 use dmg::{
     cpu::CPU,
     memory::{BootRom, MMU},
+    ppu::color32::Color32,
 };
 
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::mpsc::channel;
 use std::sync::{Arc, Mutex};
 use std::{cell::RefCell, rc::Rc, rc::Weak};
-use std::{time, vec};
 
 use eframe::{UserEvent, egui};
 use winit::event_loop::{ControlFlow, EventLoop};
 
-use flexi_logger::{DeferredNow, FileSpec, Logger, WriteMode};
+use flexi_logger::{DeferredNow, Logger, WriteMode};
 use log::Record;
 
-static DMG_ROM: &[u8] = include_bytes!("..\\..\\dmg\\src\\bin\\dmg_boot.bin");
-static DMA_TEST_ROM: &[u8] = include_bytes!("..\\..\\dmg\\src\\bin\\Tetris (JUE) (V1.1) [!].gb");
+static DMG_ROM: &[u8] = include_bytes!("..\\..\\roms\\dmg_boot.bin");
+static DMA_TEST_ROM: &[u8] = include_bytes!("..\\..\\roms\\Tetris (JUE) (V1.1) [!].gb");
 
 pub fn no_info_format(
     w: &mut dyn std::io::Write,
@@ -29,11 +31,11 @@ pub fn no_info_format(
 }
 
 fn main() {
-    let _logger = Logger::try_with_str("warn")
+    let _logger = Logger::try_with_str("info")
         .unwrap()
         .write_mode(WriteMode::Async)
-        .format(no_info_format)
-        .log_to_file(FileSpec::default())
+        // .format(no_info_format)
+        // .log_to_file(FileSpec::default())
         .start()
         .unwrap();
 
@@ -43,13 +45,24 @@ fn main() {
     let frame_ready = Arc::new(AtomicBool::new(false));
     let frame_ready_clone = frame_ready.clone();
 
-    let screen_buffer = Arc::new(Mutex::new(vec![0u8; 160 * 144 * 4]));
-    let background_buffer = Arc::new(Mutex::new(vec![0u8; 256 * 256 * 4]));
-    let sprites_buffer = Arc::new(Mutex::new(vec![0u8; 10 * 5 * 10 * 8 * 4]));
+    let screen_buffer = Arc::new(Mutex::new(egui::ColorImage::filled(
+        [160, 144],
+        egui::Color32::PURPLE,
+    )));
+    let background_buffer = Arc::new(Mutex::new(egui::ColorImage::filled(
+        [256, 256],
+        egui::Color32::BLACK,
+    )));
+    let sprites_buffer = Arc::new(Mutex::new(egui::ColorImage::filled(
+        [10 * 5, 10 * 8],
+        egui::Color32::BLACK,
+    )));
 
     let screen_buffer_clone = screen_buffer.clone();
     let background_buffer_clone = background_buffer.clone();
     let sprites_buffer_clone = sprites_buffer.clone();
+
+    let (keypad_tx, keypad_rx) = channel::<(u8, u8)>();
 
     // Run emulator in a seperate thread
     std::thread::spawn(move || {
@@ -69,64 +82,65 @@ fn main() {
 
         let mut cpu = CPU::new(mmu.clone());
 
-        let mut bg_buffer = vec![0u32; 256 * 256];
-        let mut oam_buffer = vec![0u32; 10 * 5 * 10 * 8];
-
         while r.load(Ordering::Relaxed) {
             cpu.do_step();
 
-            if cpu.pc == 0x0100 {
-                _logger.parse_new_spec("dmg::cpu::decode = trace").unwrap();
-                println!("Entering main loop, PC: {:04X}", cpu.pc);
-            }
+            // if cpu.pc == 0x0100 {
+            //     _logger.parse_new_spec("dmg::cpu::decode = trace").unwrap();
+            //     println!("Entering main loop, PC: {:04X}", cpu.pc);
+            // }
 
             let frame_ready = mmu.borrow().ppu.frame_ready;
-            let ppu = &mut mmu.borrow_mut().ppu;
             if frame_ready {
                 // Copy the frame_buffer to the screen buffer
                 {
+                    let ppu = &mut mmu.borrow_mut().ppu;
+
+                    // Copy the screen
                     let mut screen_buffer = screen_buffer_clone.lock().unwrap();
-                    let src = &ppu.frame_buffer;
+                    let screen_buffer_ptr = screen_buffer.as_raw_mut();
+                    let src = &ppu.frame_buffer.as_raw_bytes();
+                    screen_buffer_ptr.clone_from_slice(src);
 
-                    for i in 0..src.len() {
-                        screen_buffer[i * 4] = (src[i] >> 16) as u8;
-                        screen_buffer[i * 4 + 1] = (src[i] >> 8) as u8;
-                        screen_buffer[i * 4 + 2] = (src[i] >> 0) as u8;
-                        screen_buffer[i * 4 + 3] = 0xFF;
-                    }
+                    // Render the background debug view
+                    let background_buffer = background_buffer_clone.lock().unwrap();
+                    let mut bg_buffer_as_color32_slice = unsafe {
+                        std::slice::from_raw_parts_mut(
+                            background_buffer.pixels.as_ptr() as *mut Color32,
+                            background_buffer.pixels.len(),
+                        )
+                    };
+                    ppu.render_bg_debug(&mut bg_buffer_as_color32_slice);
 
-                    ppu.render_bg(&mut bg_buffer);
-                    let mut background_buffer = background_buffer_clone.lock().unwrap();
-                    for i in 0..256 * 256 {
-                        background_buffer[i * 4] = (bg_buffer[i] >> 16) as u8;
-                        background_buffer[i * 4 + 1] = (bg_buffer[i] >> 8) as u8;
-                        background_buffer[i * 4 + 2] = (bg_buffer[i] >> 0) as u8;
-                        background_buffer[i * 4 + 3] = 0xFF;
-                    }
-
-                    ppu.render_sprites_debug(&mut oam_buffer);
-                    let mut sprites_buffer = sprites_buffer_clone.lock().unwrap();
-                    for i in 0..oam_buffer.len() {
-                        sprites_buffer[i * 4] = (oam_buffer[i] >> 16) as u8;
-                        sprites_buffer[i * 4 + 1] = (oam_buffer[i] >> 8) as u8;
-                        sprites_buffer[i * 4 + 2] = (oam_buffer[i] >> 0) as u8;
-                        sprites_buffer[i * 4 + 3] = 0xFF;
-                    }
+                    // Render the sprites debug view
+                    let sprites_buffer = sprites_buffer_clone.lock().unwrap();
+                    let mut sprites_buffer_as_color32_slice = unsafe {
+                        std::slice::from_raw_parts_mut(
+                            sprites_buffer.pixels.as_ptr() as *mut Color32,
+                            sprites_buffer.pixels.len(),
+                        )
+                    };
+                    ppu.render_sprites_debug(&mut sprites_buffer_as_color32_slice);
                 }
 
                 frame_ready_clone.store(true, Ordering::Relaxed);
 
-                while frame_ready_clone.load(Ordering::Relaxed) == true {
-                    std::thread::sleep(time::Duration::from_millis(1));
+                // Blocking
+                let input = keypad_rx.recv().ok();
+
+                if let Some((buttons, dpad)) = input {
+                    mmu.borrow_mut().joypad.set_buttons(buttons, dpad);
                 }
-                ppu.frame_ready = false;
+
+                mmu.borrow_mut().ppu.frame_ready = false;
             }
         }
 
-        println!("Exiting emulator loop");
+        log::info!("Exiting emulator loop");
     });
 
     let native_options = eframe::NativeOptions {
+        renderer: eframe::Renderer::Wgpu,
         viewport: egui::ViewportBuilder::default().with_inner_size([400.0, 300.0]),
         ..Default::default()
     };
@@ -144,6 +158,7 @@ fn main() {
                 screen_buffer,
                 background_buffer,
                 sprites_buffer,
+                keypad_tx,
             )))
         }),
         &eventloop,

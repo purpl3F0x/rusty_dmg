@@ -5,7 +5,7 @@ mod test_bx {
 
     use paste::paste;
 
-    macro_rules! test_or{
+    macro_rules! test_or {
         ($instruction:expr, $rhs:expr) => {
             paste! {
                     #[test]
@@ -39,7 +39,7 @@ mod test_bx {
         };
     }
 
-    macro_rules! test_cp{
+    macro_rules! test_cp {
         ($instruction:expr, $rhs:expr) => {
             paste! {
                     #[test]
@@ -150,7 +150,7 @@ mod test_bx {
         assert_eq!(machine.cpu.pc, 0x0001);
         assert_eq!(machine.cpu.t_cycles, 8);
         assert_eq!(machine.cpu.a(), 0x42);
-        assert_eq!(machine.cpu.f(), ZERO_FLAG | SUB_FLAG );
+        assert_eq!(machine.cpu.f(), ZERO_FLAG | SUB_FLAG);
     }
 
     #[test]

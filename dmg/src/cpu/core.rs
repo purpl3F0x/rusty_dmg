@@ -1,5 +1,3 @@
-use crate::{memory::mmu, ppu};
-
 use super::*;
 
 use log::*;
@@ -133,7 +131,6 @@ impl CPU {
         let dma = self.mmu.borrow().dma.clone();
 
         dma.borrow_mut().tick();
-
 
         for _ in 0..4 {
             self.tick();

@@ -1,10 +1,10 @@
 use super::*;
 
-use crate::joypad::{self, Joypad};
+use crate::joypad::Joypad;
 use crate::ppu::PPU;
 use crate::timer::Timer;
 
-use log::{info, warn};
+use log::warn;
 use std::{cell::RefCell, rc::Rc};
 
 #[derive(Debug)]
@@ -109,11 +109,15 @@ impl MMU {
                 }
             }
             // ROM Bank 1-N
-            0x4000..=0x7FFF => unimplemented!("Write to ROM Bank "),
+            0x4000..=0x7FFF => {
+                log::error!("Write to ROM Bank ")
+            }
             // VRAM
             0x8000..=0x9FFF => self.ppu.write(addr, value),
             // External RAM
-            0xA000..=0xBFFF => unimplemented!("Write to external RAM"),
+            0xA000..=0xBFFF => {
+                log::error!("Write to external RAM");
+            }
             // Work RAM
             0xC000..=0xDFFF => self.wram[(addr - 0xC000) as usize] = value,
             // Echo RAM - Copy of Work RAM

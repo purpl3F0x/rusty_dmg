@@ -189,7 +189,4 @@ mod test_8x {
         assert_eq!(machine.cpu.a(), 0x84);
         assert_eq!(machine.cpu.f(), 0);
     }
-
-    
-
 }

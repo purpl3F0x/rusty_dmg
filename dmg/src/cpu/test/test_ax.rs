@@ -103,7 +103,7 @@ mod test_ax {
         assert_eq!(machine.cpu.f(), HALF_FLAG);
     }
 
-        #[test]
+    #[test]
     fn test_a6_zero() {
         let machine = run_test(&[0xA6], |machine| {
             *machine.cpu.a_mut() = 0x42;

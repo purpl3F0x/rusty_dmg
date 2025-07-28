@@ -2,19 +2,12 @@
 name = "dmg"
 version = "0.1.0"
 edition = "2021"
-default-run = "rust_dmg"
-
-[[bin]]
-name = "rust_dmg"
-path = "src/bin/main.rs"
 
 
 [dev-dependencies]
 paste = "1"
 
+
 [dependencies]
 bitfield = "0.19.1"
-env_logger = "0.11.8"
 log = "0.4.27"
-minifb = "^0.28.0"
-fast_log = "*"

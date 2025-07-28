@@ -2,7 +2,6 @@ use super::*;
 use crate::memory::io_registers::*;
 use crate::memory::RegisterTrait;
 
-use env_logger::fmt::style::Color;
 use log::*;
 
 pub const VRAM_START: u16 = 0x8000;
@@ -46,7 +45,7 @@ impl PPU {
             scan_line: 0,
             frame_counter: 0,
             line_counter: 0,
-            frame_buffer: vec![0x9a9e3f; 160 * 144],
+            frame_buffer: [Color32::RGB(0x9a, 0x9e, 0x3f); 160 * 144],
             obj_scanline: [OAMEntry([0, 0, 0, 0]); 10],
             frame_ready: false,
             t_cycles: 0,
@@ -70,7 +69,7 @@ impl PPU {
     }
 
     #[inline(always)]
-    fn bgp_lut(&self, pallete: &BGPalette, id: u8) -> u32 {
+    fn bgp_lut(&self, pallete: &BGPalette, id: u8) -> Color32 {
         let value = match id & 0b11 {
             0 => pallete.id0(),
             1 => pallete.id1(),
@@ -80,10 +79,10 @@ impl PPU {
         };
 
         match value {
-            0 => 0x9a9e3f,
-            1 => 0x496b22,
-            2 => 0xe450b,
-            3 => 0x1b2a09,
+            0 => Color32::RGB(155, 188, 15),
+            1 => Color32::RGB(139, 172, 15),
+            2 => Color32::RGB(48, 98, 48),
+            3 => Color32::RGB(15, 56, 15),
             _ => unreachable!(),
         }
     }
@@ -111,26 +110,19 @@ impl PPU {
                 warn!("The screen shouldn't turn off while not in VBLANK");
             }
 
-            self.frame_buffer.fill(0x9a9e3f);
+            self.frame_buffer.fill(Color32::RGB(202, 220, 159));
             self.scan_line = 0;
         } else if !is_lcd_enabled && self.lcd_control.lcd_enable() {
             // Enabling LCD
             debug!("LCD enabled");
 
             self.update_ppu_mode(PPUMode::OAMSearch);
-
-            // Clear the frame buffer
-            self.frame_buffer.fill(0x9a9e3f);
         }
     }
 
     #[inline]
     pub fn update_ppu_mode(&mut self, mode: PPUMode) {
         if self.mode != mode {
-            debug!(
-                "PPU mode changed from {:?} to {:? } @line_counter = {}, @frame_counter = {}, @tick = {}",
-                self.mode, mode, self.line_counter, self.frame_counter, self.t_cycles
-            );
             self.mode = mode;
             self.lcd_status.set_ppu_mode(self.mode as u8);
 
@@ -233,7 +225,7 @@ impl PPU {
             let p2 = (v1 >> (7 - tile_x)) & 1;
             let color_index = (p1 << 1) | p2;
 
-            let color: u32 = self.bgp_lut(&self.bg_palette, color_index);
+            let color = self.bgp_lut(&self.bg_palette, color_index);
 
             let idx = (self.ly as i32) * 160 + x as i32;
 
@@ -310,7 +302,7 @@ impl PPU {
         }
     }
 
-    pub fn render_bg(&self, frame_buffer: &mut Vec<u32>) {
+    pub fn render_bg_debug(&self, frame_buffer: &mut [Color32]) {
         let bg_map_base = self.get_map_base_address() as i32;
         let bg_tile_base = self.get_tile_base_address() as i32;
 
@@ -334,7 +326,7 @@ impl PPU {
                         let p2 = (v1 >> (7 - tile_x)) & 1;
                         let color_index = (p1 << 1) | p2;
 
-                        let color: u32 = self.bgp_lut(&self.bg_palette, color_index);
+                        let color = self.bgp_lut(&self.bg_palette, color_index);
 
                         let idx_x = x * 8 + tile_x;
                         let idx_y = y * 8 + tile_y;
@@ -356,7 +348,7 @@ impl PPU {
                 for x in 0..viewport_width {
                     let idx = (viewport_y + y) * 256 + (viewport_x + x);
                     if idx < frame_buffer.len() {
-                        frame_buffer[idx] = 0xFF0000; // Red color for viewport
+                        frame_buffer[idx] = Color32::RGB(0xFF, 0x00, 0x00); // Red color for viewport
                     }
                 }
             } else {
@@ -364,10 +356,10 @@ impl PPU {
                 let left_idx = (viewport_y + y) * 256 + viewport_x;
                 let right_idx = (viewport_y + y) * 256 + (viewport_x + viewport_width - 1);
                 if left_idx < frame_buffer.len() {
-                    frame_buffer[left_idx] = 0xFF0000; // Red color for viewport
+                    frame_buffer[left_idx] = Color32::RGB(0xFF, 0x00, 0x00); // Red color for viewport
                 }
                 if right_idx < frame_buffer.len() {
-                    frame_buffer[right_idx] = 0xFF0000; // Red color for viewport
+                    frame_buffer[right_idx] = Color32::RGB(0xFF, 0x00, 0x00); // Red color for viewport
                 }
             }
         }
@@ -378,21 +370,21 @@ impl PPU {
                 if x % 8 == 0 || y % 8 == 0 {
                     let idx = y * 256 + x;
                     if idx < frame_buffer.len() {
-                        let mut r = (frame_buffer[idx] >> 16) & 0xFF;
-                        let mut g = (frame_buffer[idx] >> 8) & 0xFF;
-                        let mut b = frame_buffer[idx] & 0xFF;
+                        let mut r = frame_buffer[idx].r;
+                        let mut g = frame_buffer[idx].g;
+                        let mut b = frame_buffer[idx].b;
 
                         r = r / 2;
                         g = g / 2;
                         b = b / 2;
-                        frame_buffer[idx] = (r << 16) | (g << 8) | b; // Reduce brightness
+                        frame_buffer[idx] = Color32::RGB(r, g, b);
                     }
                 }
             }
         }
     }
 
-    pub fn render_sprites_debug(&mut self, frame_buffer: &mut Vec<u32>) {
+    pub fn render_sprites_debug(&mut self, frame_buffer: &mut [Color32]) {
         for i in 0..40 {
             let block_y = i / 5;
             let block_x = i % 5;
@@ -411,7 +403,7 @@ impl PPU {
                     let p2 = (v1 >> (7 - col)) & 1;
                     let color_index = (p1 << 1) | p2;
 
-                    let color: u32 = if oam_entry.dmg_palette() == false {
+                    let color = if oam_entry.dmg_palette() == false {
                         self.bgp_lut(&self.obj_palette_0, color_index)
                     } else {
                         self.bgp_lut(&self.obj_palette_1, color_index)
@@ -420,9 +412,7 @@ impl PPU {
                     let x = 1 + block_x * 10 + col;
                     let y = 1 + block_y * 10 + row as usize;
 
-                    if x < frame_buffer.len() && y < frame_buffer.len() / 256 {
-                        frame_buffer[y * 5 * 10 + x] = color;
-                    }
+                    frame_buffer[y * 5 * 10 + x] = color // Dark gray for sprite background
                 }
             }
         }

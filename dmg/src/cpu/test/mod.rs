@@ -1,7 +1,6 @@
 use std::rc::Weak;
 
-use crate::memory::{boot_rom, dma, BootRom, DMA, MMU};
-use crate::ppu::PPU;
+use crate::memory::{BootRom, DMA, MMU};
 
 use super::*;
 

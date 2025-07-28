@@ -2,7 +2,7 @@ use super::RegisterTrait;
 use super::MMU;
 
 use std::cell::RefCell;
-use std::rc::{Rc, Weak};
+use std::rc::Weak;
 
 #[derive(Debug)]
 pub struct DMA {
@@ -36,16 +36,8 @@ impl DMA {
 
         self.offset += 1;
 
-        log::trace!(
-            "DMA transfer: {:#04X} -> {:#04X} (value: {:#04X})",
-            src_addr,
-            dst_addr,
-            value
-        );
-
         if self.offset == 0x9F {
             self.enabled = false;
-            log::debug!("DMA transfer completed");
         }
     }
 
@@ -68,8 +60,6 @@ impl RegisterTrait for DMA {
             self.source = (value as u16) << 8;
             self.offset = 0;
             self.enabled = true;
-
-            log::debug!("DMA started from source: {:#04X}", self.source);
         } else {
             panic!(
                 "Attempted to write to unsupported DMA address: {:#04X}",

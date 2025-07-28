@@ -1,11 +1,9 @@
 use super::*;
 
 use core::panic;
-use std::cell::RefCell;
-use std::rc::Weak;
 use std::result::Result;
 
-use log::{error, warn, debug};
+use log::debug;
 
 #[derive(Debug, Clone)]
 pub struct BootRom {
@@ -51,7 +49,10 @@ impl RegisterTrait for BootRom {
 
     fn write(&mut self, address: u16, value: u8) {
         if address == R_BANK {
-            debug!("Writing to Boot ROM at address: {:#04X}, value: {:#04X}", address, value);
+            debug!(
+                "Writing to Boot ROM at address: {:#04X}, value: {:#04X}",
+                address, value
+            );
             self.enabled = value == 0;
 
             debug!("Boot ROM enabled: {}", self.enabled);

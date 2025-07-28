@@ -6,7 +6,7 @@ use std::rc::Rc;
 use bitfield::bitfield;
 
 #[derive(Debug)]
-enum JoypadButton {
+pub enum JoypadButton {
     A,
     B,
     Select,
@@ -38,8 +38,9 @@ bitfield! {
 bitfield! {
     struct Select(u8);
     impl Debug;
-    select_buttons, set_select_buttons: 4;
-    select_dpad, set_select_dpad: 5;
+    select_dpad, set_select_dpad: 4;
+    select_buttons, set_select_buttons: 5;
+
 }
 
 #[derive(Debug)]
@@ -53,8 +54,8 @@ pub struct Joypad {
 impl Joypad {
     pub fn new(ic: Rc<RefCell<InterruptController>>) -> Self {
         Joypad {
-            buttons: Buttons(0xF),
-            dpad: Dpad(0xF),
+            buttons: Buttons(0),
+            dpad: Dpad(0),
             select: Select(0b0011_0000),
             ic,
         }
@@ -112,6 +113,19 @@ impl Joypad {
                     }
                 }
             }
+        }
+    }
+
+    pub fn set_buttons(&mut self, buttons: u8, dpad: u8) {
+        self.buttons.0 = buttons & 0b0000_1111;
+        self.dpad.0 = dpad & 0b0000_1111;
+
+        if !self.select.select_buttons() && self.buttons.0 != 0 {
+            self.ic.borrow_mut().interrupt_flag.set_joypad(true);
+        }
+
+        if !self.select.select_dpad() && self.dpad.0 != 0 {
+            self.ic.borrow_mut().interrupt_flag.set_joypad(true);
         }
     }
 
