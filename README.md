@@ -4,5 +4,10 @@
 
 Yet another Gameboy Emulator, written in Rust
 
-Passes Blargg's test ROMs. 😃
+- [x] Passes Blargg's test ROMs. 😃
+- [x] Runs Tetris
+- [ ] Doesn't run Pokemon .. yet 😞
 
+<br>
+
+![Screenshot](./assets/screenshot.png)
