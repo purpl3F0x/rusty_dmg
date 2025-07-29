@@ -1,21 +1,24 @@
 use std::mem::MaybeUninit;
 use std::sync::Arc;
+use std::sync::Condvar;
 use std::sync::Mutex;
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::Sender;
 
 use egui::ColorImage;
 use egui::Key;
 use egui::TextureOptions;
 
+include!("shader_widget.rs");
+// use Custom3d;
+
 #[derive(serde::Deserialize, serde::Serialize)]
 #[serde(default)]
-pub struct TemplateApp {
+pub struct App {
     scale_factor: f32,
     running: bool,
 
     #[serde(skip)]
-    frame_ready: Arc<AtomicBool>,
+    frame_ready: Arc<(Mutex<bool>, Condvar)>,
 
     #[serde(skip)]
     keypad_channel_sender: MaybeUninit<Sender<(u8, u8)>>,
@@ -28,13 +31,13 @@ pub struct TemplateApp {
     oam_window: FrameWindow,
 }
 
-impl Default for TemplateApp {
+impl Default for App {
     fn default() -> Self {
         Self {
             scale_factor: 1.0,
             running: true,
 
-            frame_ready: Arc::new(AtomicBool::new(false)),
+            frame_ready: Arc::default(),
 
             keypad_channel_sender: MaybeUninit::uninit(),
 
@@ -62,11 +65,11 @@ impl Default for TemplateApp {
     }
 }
 
-impl TemplateApp {
+impl App {
     /// Called once before the first frame.
     pub fn new(
         cc: &eframe::CreationContext<'_>,
-        frame_ready: Arc<AtomicBool>,
+        frame_ready: Arc<(Mutex<bool>, Condvar)>,
         screen_buffer: Arc<Mutex<ColorImage>>,
         background_buffer: Arc<Mutex<ColorImage>>,
         sprites_buffer: Arc<Mutex<ColorImage>>,
@@ -76,8 +79,7 @@ impl TemplateApp {
         // `cc.egui_ctx.set_visuals` and `cc.egui_ctx.set_fonts`.
 
         // Load previous app state (if any).
-        // Note that you must enable the `persistence` feature for this to work.
-        let mut app: TemplateApp = if let Some(storage) = cc.storage {
+        let mut app: App = if let Some(storage) = cc.storage {
             eframe::get_value(storage, eframe::APP_KEY).unwrap_or_default()
         } else {
             Default::default()
@@ -98,14 +100,21 @@ impl TemplateApp {
     }
 }
 
-impl eframe::App for TemplateApp {
-    /// Called by the framework to save state before shutdown.
+impl eframe::App for App {
     fn save(&mut self, storage: &mut dyn eframe::Storage) {
         eframe::set_value(storage, eframe::APP_KEY, self);
     }
 
-    /// Called each time the UI needs repainting, which may be many times per second.
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        // Sync with emulator thread
+        // let (lock, cvar) = &*self.frame_ready;
+        // let mut is_frame_ready = lock.lock().unwrap();
+        // is_frame_ready = cvar
+        //     .wait_while(is_frame_ready, |is_frame_ready| !*is_frame_ready)
+        //     .unwrap();
+        // *is_frame_ready = false;
+        // drop(is_frame_ready);
+
         egui::TopBottomPanel::top("top_panel").show(ctx, |ui| {
             egui::MenuBar::new().ui(ui, |ui| {
                 ui.menu_button("File", |ui| {
@@ -116,12 +125,12 @@ impl eframe::App for TemplateApp {
             });
         });
 
-        egui::CentralPanel::default().show(ctx, |ui| {
-            self.screen_window.scale_factor = self.scale_factor;
-            self.screen_window.show(ctx);
-            self.background_window.show(ctx);
-            self.oam_window.show(ctx);
-        });
+        egui::CentralPanel::default().show(ctx, |_ui| {});
+
+        self.screen_window.scale_factor = self.scale_factor;
+        self.screen_window.show(ctx);
+        self.background_window.show(ctx);
+        self.oam_window.show(ctx);
 
         egui::TopBottomPanel::bottom("bottom_panel").show(ctx, |ui| {
             ui.vertical(|ui| {
@@ -133,7 +142,7 @@ impl eframe::App for TemplateApp {
                 ui.horizontal(|ui| {
                     ui.with_layout(egui::Layout::left_to_right(egui::Align::Min), |ui| {
                         let time = ctx.input(|input| input.stable_dt);
-                        ui.label(format!("FPS: {:3.0}", 1.0 / time));
+                        ui.label(format!("FPS: {:3.0}", (1.0 / time).round()));
 
                         ui.add(
                             egui::Slider::new(&mut self.scale_factor, 1.0..=8.0)
@@ -147,10 +156,6 @@ impl eframe::App for TemplateApp {
                 });
             });
         });
-
-        if self.frame_ready.load(Ordering::Relaxed) {
-            self.frame_ready.store(false, Ordering::Relaxed);
-        }
 
         ctx.input(|input| {
             let input = (

@@ -1,5 +1,5 @@
 mod app;
-pub use app::TemplateApp;
+pub use app::App;
 
 use dmg::ppu::IntoRawBytes;
 use dmg::{
@@ -8,19 +8,18 @@ use dmg::{
     ppu::color32::Color32,
 };
 
+use eframe::{UserEvent, egui};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::channel;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Condvar, Mutex};
 use std::{cell::RefCell, rc::Rc, rc::Weak};
-
-use eframe::{UserEvent, egui};
 use winit::event_loop::{ControlFlow, EventLoop};
 
 use flexi_logger::{DeferredNow, Logger, WriteMode};
 use log::Record;
 
 static DMG_ROM: &[u8] = include_bytes!("..\\..\\roms\\dmg_boot.bin");
-static DMA_TEST_ROM: &[u8] = include_bytes!("..\\..\\roms\\Tetris (JUE) (V1.1) [!].gb");
+static TEST_ROM: &[u8] = include_bytes!("..\\..\\roms\\Tetris (JUE) (V1.1) [!].gb");
 
 pub fn no_info_format(
     w: &mut dyn std::io::Write,
@@ -31,7 +30,7 @@ pub fn no_info_format(
 }
 
 fn main() {
-    let _logger = Logger::try_with_str("info")
+    let _logger = Logger::try_with_str("warn, dmg=info")
         .unwrap()
         .write_mode(WriteMode::Async)
         // .format(no_info_format)
@@ -42,8 +41,8 @@ fn main() {
     let run_emulator = Arc::new(AtomicBool::new(true));
     let r = run_emulator.clone();
 
-    let frame_ready = Arc::new(AtomicBool::new(false));
-    let frame_ready_clone = frame_ready.clone();
+    let frame_ready_condvar = Arc::new((Mutex::new(true), Condvar::new()));
+    let frame_ready_condvar_clone = Arc::clone(&frame_ready_condvar);
 
     let screen_buffer = Arc::new(Mutex::new(egui::ColorImage::filled(
         [160, 144],
@@ -65,20 +64,18 @@ fn main() {
     let (keypad_tx, keypad_rx) = channel::<(u8, u8)>();
 
     // Run emulator in a seperate thread
-    std::thread::spawn(move || {
-        let mut rom = [0u8; 0x8000];
+    let emu_thread = std::thread::spawn(move || {
         let mut bootrom = BootRom::new();
         _ = bootrom.load(DMG_ROM);
 
         let dma = Rc::new(RefCell::new(dmg::memory::dma::DMA::new(Weak::new())));
 
-        // Copy DMA_TEST_ROM into the ROM
-        let mut i = 0;
-        while i < DMA_TEST_ROM.len() && i < rom.len() {
-            rom[i] = DMA_TEST_ROM[i];
-            i += 1;
-        }
-        let mmu: Rc<RefCell<MMU>> = MMU::new(rom, bootrom.clone(), dma.clone());
+        // Create a new MBC
+        let rom = mbc::MBC::new(TEST_ROM.to_vec());
+
+        log::info!("Starting emulator with ROM: {:?}", rom);
+
+        let mmu: Rc<RefCell<MMU>> = MMU::new(Some(rom), bootrom.clone(), dma.clone());
 
         let mut cpu = CPU::new(mmu.clone());
 
@@ -90,8 +87,7 @@ fn main() {
             //     println!("Entering main loop, PC: {:04X}", cpu.pc);
             // }
 
-            let frame_ready = mmu.borrow().ppu.frame_ready;
-            if frame_ready {
+            if mmu.borrow().ppu.frame_ready {
                 // Copy the frame_buffer to the screen buffer
                 {
                     let ppu = &mut mmu.borrow_mut().ppu;
@@ -123,10 +119,16 @@ fn main() {
                     ppu.render_sprites_debug(&mut sprites_buffer_as_color32_slice);
                 }
 
-                frame_ready_clone.store(true, Ordering::Relaxed);
+                let (lock, cvar) = &*frame_ready_condvar_clone;
+                let mut frame_ready_sync = lock.lock().unwrap();
+                *frame_ready_sync = true;
+                cvar.notify_one();
+                drop(frame_ready_sync);
 
                 // Blocking
-                let input = keypad_rx.recv().ok();
+                let input = keypad_rx
+                    .recv_timeout(std::time::Duration::from_millis(100))
+                    .ok();
 
                 if let Some((buttons, dpad)) = input {
                     mmu.borrow_mut().joypad.set_buttons(buttons, dpad);
@@ -148,13 +150,15 @@ fn main() {
     let eventloop = EventLoop::<UserEvent>::with_user_event().build().unwrap();
     eventloop.set_control_flow(ControlFlow::Poll);
 
+    std::thread::sleep(std::time::Duration::from_millis(1000));
+
     let mut winit_app = eframe::create_native(
         "Rusty-DMG",
         native_options,
         Box::new(|cc| {
-            Ok(Box::new(TemplateApp::new(
+            Ok(Box::new(App::new(
                 cc,
-                frame_ready,
+                frame_ready_condvar,
                 screen_buffer,
                 background_buffer,
                 sprites_buffer,
@@ -165,5 +169,8 @@ fn main() {
     );
     eventloop.run_app(&mut winit_app).unwrap();
 
+    log::warn!("Shutting down emulator...");
+
     run_emulator.store(false, Ordering::Relaxed);
+    emu_thread.join().unwrap();
 }

@@ -7,9 +7,11 @@ use crate::timer::Timer;
 use log::warn;
 use std::{cell::RefCell, rc::Rc};
 
+use mbc::{MBCTrait, MBC};
+
 #[derive(Debug)]
 pub struct MMU {
-    pub rom: [u8; 0x8000],
+    pub cartridge: MBC,
     pub wram: [u8; 0x2000],
     pub hram: [u8; 0x007F],
     pub ic: Rc<RefCell<InterruptController>>,
@@ -22,14 +24,14 @@ pub struct MMU {
 }
 
 impl MMU {
-    pub fn new(rom: [u8; 0x8000], boot_rom: BootRom, dma: Rc<RefCell<DMA>>) -> Rc<RefCell<MMU>> {
+    pub fn new(rom: Option<MBC>, boot_rom: BootRom, dma: Rc<RefCell<DMA>>) -> Rc<RefCell<MMU>> {
         let ic = Rc::new(RefCell::new(InterruptController::new()));
 
         let ppu = PPU::new(ic.clone());
         let joypad = Joypad::new(ic.clone());
 
         let mmu = Rc::new(RefCell::new(MMU {
-            rom: rom,
+            cartridge: rom.unwrap_or(MBC::empty()),
             wram: [0; 0x2000],
             hram: [0; 0x007F],
             ic: ic,
@@ -60,15 +62,15 @@ impl MMU {
                 if self.boot_rom.enabled && addr < 0x0100 {
                     self.boot_rom.read(addr)
                 } else {
-                    self.rom[(addr - 0x0000) as usize]
+                    self.cartridge.read_rom(addr)
                 }
             }
             // ROM Bank 1-N
-            0x4000..=0x7FFF => self.rom[(addr - 0x0000) as usize],
+            0x4000..=0x7FFF => self.cartridge.read_rom(addr),
             // VRAM
             0x8000..=0x9FFF => self.ppu.read(addr),
             // External RAM
-            0xA000..=0xBFFF => unimplemented!("Read from external RAM"),
+            0xA000..=0xBFFF => self.cartridge.read_ram(addr),
             // Work RAM
             0xC000..=0xDFFF => self.wram[(addr - 0xC000) as usize],
             // Echo RAM - Copy of Work RAM
@@ -105,19 +107,17 @@ impl MMU {
                 if self.boot_rom.enabled && addr < 0x0100 {
                     warn!("Attempt to write to Boot ROM at address {:#04X}", addr);
                 } else {
-                    self.rom[(addr - 0x0000) as usize] = value;
+                    self.cartridge.write_rom(addr, value);
                 }
             }
             // ROM Bank 1-N
             0x4000..=0x7FFF => {
-                log::error!("Write to ROM Bank ")
+                self.cartridge.write_rom(addr, value);
             }
             // VRAM
             0x8000..=0x9FFF => self.ppu.write(addr, value),
             // External RAM
-            0xA000..=0xBFFF => {
-                log::error!("Write to external RAM");
-            }
+            0xA000..=0xBFFF => self.cartridge.write_ram(addr, value),
             // Work RAM
             0xC000..=0xDFFF => self.wram[(addr - 0xC000) as usize] = value,
             // Echo RAM - Copy of Work RAM

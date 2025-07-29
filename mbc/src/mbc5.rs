@@ -47,49 +47,49 @@ impl MBCTrait for MBC5 {
         self.rom[address as usize]
     }
 
-    fn read_rom(&self, a: u16) -> u8 {
-        self.rom[a as usize]
+    fn read_rom(&self, address: u16) -> u8 {
+        self.rom[address as usize]
     }
 
-    fn write_rom(&mut self, a: u16, v: u8) {
-        match a {
+    fn write_rom(&mut self, address: u16, value: u8) {
+        match address {
             // Ram enable/disable
             0x0000..=0x1FFF => {
-                self.ram_enabled = v & 0x0F == 0x0A;
+                self.ram_enabled = value & 0x0F == 0x0A;
             }
             // ROM bank select ( lower 8 bits )
             0x2000..=0x2FFF => {
-                self.active_rom_back = v as u16;
+                self.active_rom_back = value as u16;
             }
             // ROM bank select ( 9th bit )
             0x3000..=0x3FFF => {
-                self.active_rom_back |= (v as u16 & 0x01) << 8;
+                self.active_rom_back |= (value as u16 & 0x01) << 8;
             }
             // RAM bank select
             0x4000..=0x5FFF => {
-                self.active_ram_back = (v & 0x0F) % self.ram_banks;
+                self.active_ram_back = (value & 0x0F) % self.ram_banks;
             }
 
             _ => {}
         }
     }
 
-    fn read_ram(&self, a: u16) -> u8 {
+    fn read_ram(&self, address: u16) -> u8 {
         if self.ram_enabled == false {
             return 0xFF;
         }
 
-        let idx = self.active_ram_back as usize * 0x2000 | (a as usize & 0x1FFF);
+        let idx = self.active_ram_back as usize * 0x2000 | (address as usize & 0x1FFF);
         self.ram[idx]
     }
 
-    fn write_ram(&mut self, a: u16, v: u8) {
+    fn write_ram(&mut self, address: u16, value: u8) {
         if self.ram_enabled == false {
             return;
         }
 
-        let idx = self.active_ram_back as usize * 0x2000 | (a as usize & 0x1FFF);
-        self.ram[idx] = v;
+        let idx = self.active_ram_back as usize * 0x2000 | (address as usize & 0x1FFF);
+        self.ram[idx] = value;
     }
 
     fn has_battery(&self) -> bool {

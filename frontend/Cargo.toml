@@ -3,8 +3,14 @@ name = "frontend"
 version = "0.1.0"
 edition = "2024"
 
+[[bin]]
+name = "rusty_dmg"
+path = "src/main.rs"
+
 [dependencies]
 dmg = { path = "../dmg" }
+mbc = { path = "../mbc" }
+
 egui = "0.32"
 eframe = { version = "0.32", default-features = false, features = [
     "default_fonts", # Embed the default egui fonts.
@@ -22,8 +28,4 @@ wgpu = { version = "25", default-features = false, features = [
 log = "*"
 flexi_logger = { version = "0.31", features = ["async"] }
 serde = { version = "1.0.219", features = ["derive"] }
-winit = "0.30.11"
-egui_wgpu_backend = "0.34.0"
-# egui_tool_windows = { version = "0.2.0", features = ["persistence", "serde"] }
-# wgpu = "26.0.1"
-# pixels = "0.15.0"
+winit = "0.30.12"

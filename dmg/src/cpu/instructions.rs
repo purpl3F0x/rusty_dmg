@@ -23,7 +23,6 @@ impl CPU {
     pub(crate) fn halt(&mut self) {
         if self.ime {
             self.mode = CPUMode::Halt;
-            info!("CPU halted");
         } else {
             let mmu = self.mmu.borrow();
 
@@ -35,21 +34,16 @@ impl CPU {
                 info!("CPU halted (bug)");
             } else {
                 self.mode = CPUMode::Halt;
-                info!("CPU halted");
             }
         }
     }
 
     pub(crate) fn ei(&mut self) {
         self.ime = true;
-
-        info!("Interrupts enabled");
     }
 
     pub(crate) fn di(&mut self) {
         self.ime = false;
-
-        info!("Interrupts disabled");
     }
 
     /*******************************************/

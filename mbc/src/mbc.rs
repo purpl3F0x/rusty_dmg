@@ -112,6 +112,12 @@ impl MBC {
     pub fn new(rom: Vec<u8>) -> MBC {
         MBC { mbc: get_mbc(rom) }
     }
+
+    pub fn empty() -> MBC {
+        MBC {
+            mbc: Box::new(NoMBC::new(vec![0xFF; 0x8000])),
+        }
+    }
 }
 
 impl MBCTrait for MBC {

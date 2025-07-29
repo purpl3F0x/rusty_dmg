@@ -49,8 +49,8 @@ impl MBCTrait for MBC1 {
         self.rom[address as usize]
     }
 
-    fn read_rom(&self, a: u16) -> u8 {
-        let bank = if a < 0x4000 {
+    fn read_rom(&self, address: u16) -> u8 {
+        let bank = if address < 0x4000 {
             if self.banking_mode == 1 {
                 0
             } else {
@@ -60,41 +60,41 @@ impl MBCTrait for MBC1 {
             self.active_rom_bank
         } as usize;
 
-        let idx = bank * 0x4000 | ((a as usize) & 0x3FFF);
+        let idx = bank * 0x4000 | ((address as usize) & 0x3FFF);
         *self.rom.get(idx).unwrap_or(&0xFF)
     }
 
-    fn write_rom(&mut self, a: u16, v: u8) {
-        match a {
+    fn write_rom(&mut self, address: u16, value: u8) {
+        match address {
             // RAM Enable
             0x0000..=0x1FFF => {
-                self.ram_enabled = v & 0x0F == 0x0A;
+                self.ram_enabled = value & 0x0F == 0x0A;
             }
             // ROM Bank Number
             0x2000..=0x3FFF => {
-                let lower_5_bits = v & 0x1F;
+                let lower_5_bits = value & 0x1F;
                 let lower_5_bits = if lower_5_bits == 0 { 1 } else { lower_5_bits };
                 self.active_rom_bank = (self.active_rom_bank & 0xE0) | lower_5_bits;
             }
             // RAM Bank Number or Upper Bits of ROM Bank Number
             0x4000..=0x5FFF => {
                 if self.rom_banks > 32 {
-                    self.active_rom_bank = (self.active_rom_bank & 0x1F) | ((v & 0x03) << 5);
+                    self.active_rom_bank = (self.active_rom_bank & 0x1F) | ((value & 0x03) << 5);
                 }
                 if self.ram_banks > 1 {
-                    self.active_ram_bank = v & 0x03;
+                    self.active_ram_bank = value & 0x03;
                 }
             }
             // ROM/RAM Mode Select
             0x6000..=0x7FFF => {
-                self.banking_mode = v & 0x01;
-                self.active_rom_bank = (self.active_rom_bank & 0x1F) | ((v & 0x03) << 5);
+                self.banking_mode = value & 0x01;
+                self.active_rom_bank = (self.active_rom_bank & 0x1F) | ((value & 0x03) << 5);
             }
             _ => {}
         }
     }
 
-    fn read_ram(&self, a: u16) -> u8 {
+    fn read_ram(&self, address: u16) -> u8 {
         if self.ram_enabled == false {
             return 0xFF;
         }
@@ -105,12 +105,12 @@ impl MBCTrait for MBC1 {
             0
         } as usize;
 
-        let address = (bank * 0x2000) | ((a & 0x1FFF) as usize);
+        let address = (bank * 0x2000) | ((address & 0x1FFF) as usize);
 
         self.ram[address]
     }
 
-    fn write_ram(&mut self, a: u16, v: u8) {
+    fn write_ram(&mut self, address: u16, value: u8) {
         if self.ram_enabled == false {
             return;
         }
@@ -121,8 +121,8 @@ impl MBCTrait for MBC1 {
             0
         } as usize;
 
-        let address = (bank * 0x2000) | ((a & 0x1FFF) as usize);
-        self.ram[address] = v;
+        let address = (bank * 0x2000) | ((address & 0x1FFF) as usize);
+        self.ram[address] = value;
     }
 
     fn has_battery(&self) -> bool {

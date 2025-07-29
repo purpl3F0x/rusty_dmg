@@ -62,31 +62,31 @@ impl MBCTrait for MBC3 {
         self.rom[address as usize]
     }
 
-    fn read_rom(&self, a: u16) -> u8 {
-        *self.rom.get(a as usize).unwrap_or(&0xFF)
+    fn read_rom(&self, address: u16) -> u8 {
+        *self.rom.get(address as usize).unwrap_or(&0xFF)
     }
 
-    fn write_rom(&mut self, a: u16, v: u8) {
-        match a {
+    fn write_rom(&mut self, address: u16, value: u8) {
+        match address {
             // Ram enable/disable
             0x0000..=0x1FFF => {
-                self.ram_enabled = v & 0x0F == 0x0A;
+                self.ram_enabled = value & 0x0F == 0x0A;
             }
             // ROM bank select
             0x2000..=0x3FFF => {
-                self.active_rom_bank = v & 0x7F;
+                self.active_rom_bank = value & 0x7F;
                 if self.active_rom_bank == 0 {
                     self.active_rom_bank = 1;
                 }
             }
             // RAM bank select
             0x4000..=0x5FFF => {
-                self.active_ram_bank = v & 0x0F;
+                self.active_ram_bank = value & 0x0F;
             }
             // Latch clock data
             0x6000..=0x7FFF => {
                 if let Some(ref mut rtc) = self.rtc {
-                    if v & 0x01 == 0x01 {
+                    if value & 0x01 == 0x01 {
                         // rtc.latched_rtc = rtc.rtc_ram;
                     }
                 }
