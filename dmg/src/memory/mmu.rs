@@ -7,7 +7,7 @@ use crate::timer::Timer;
 use log::warn;
 use std::{cell::RefCell, rc::Rc};
 
-use mbc::{MBCTrait, MBC};
+use mbc::MBC;
 
 #[derive(Debug)]
 pub struct MMU {

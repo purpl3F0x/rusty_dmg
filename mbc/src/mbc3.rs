@@ -1,7 +1,6 @@
 use crate::mbc::MBCTrait;
 use crate::mbc::{ram_banks, rom_banks};
 
-use std::time;
 
 struct RTC {
     rtc_ram: [u8; 5],

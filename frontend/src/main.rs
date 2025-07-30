@@ -50,11 +50,11 @@ fn main() {
     )));
     let background_buffer = Arc::new(Mutex::new(egui::ColorImage::filled(
         [256, 256],
-        egui::Color32::BLACK,
+        egui::Color32::PURPLE,
     )));
     let sprites_buffer = Arc::new(Mutex::new(egui::ColorImage::filled(
         [10 * 5, 10 * 8],
-        egui::Color32::BLACK,
+        egui::Color32::PURPLE,
     )));
 
     let screen_buffer_clone = screen_buffer.clone();

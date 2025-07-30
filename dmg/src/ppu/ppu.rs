@@ -126,7 +126,6 @@ impl PPU {
             self.mode = mode;
             self.lcd_status.set_ppu_mode(self.mode as u8);
 
-            let ic_ie = self.ic.borrow().interrupt_enable.clone();
             let mut ic_mut = self.ic.borrow_mut();
 
             match self.mode {

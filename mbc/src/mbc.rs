@@ -69,7 +69,6 @@ pub trait MBCTrait: Send {
 }
 
 pub struct MBC {
-    // path: path::PathBuf,
     mbc: Box<dyn MBCTrait>,
 }
 
@@ -118,59 +117,70 @@ impl MBC {
             mbc: Box::new(NoMBC::new(vec![0xFF; 0x8000])),
         }
     }
-}
 
-impl MBCTrait for MBC {
-    fn name(&self) -> String {
+    pub fn name(&self) -> String {
         self.mbc.name()
     }
 
-    fn read_rom_raw(&self, address: u16) -> u8 {
+    pub fn rom_name(&self) -> String {
+        self.mbc.rom_name()
+    }
+
+    pub fn read_rom_raw(&self, address: u16) -> u8 {
         self.mbc.read_rom_raw(address)
     }
 
-    fn read_rom(&self, a: u16) -> u8 {
+    pub fn read_rom(&self, a: u16) -> u8 {
         self.mbc.read_rom(a)
     }
 
-    fn read_ram(&self, a: u16) -> u8 {
+    pub fn read_ram(&self, a: u16) -> u8 {
         self.mbc.read_ram(a)
     }
 
-    fn write_rom(&mut self, a: u16, v: u8) {
+    pub fn write_rom(&mut self, a: u16, v: u8) {
         self.mbc.write_rom(a, v)
     }
 
-    fn write_ram(&mut self, a: u16, v: u8) {
+    pub fn write_ram(&mut self, a: u16, v: u8) {
         self.mbc.write_ram(a, v)
     }
 
-    fn has_battery(&self) -> bool {
+    pub fn has_battery(&self) -> bool {
         self.mbc.has_battery()
     }
 
-    fn has_rtc(&self) -> bool {
+    pub fn has_rtc(&self) -> bool {
         self.mbc.has_rtc()
     }
 
-    fn dump_ram(&self) -> Vec<u8> {
+    pub fn dump_ram(&self) -> Vec<u8> {
         self.mbc.dump_ram()
     }
 
-    fn rom_banks(&self) -> u8 {
+    pub fn rom_banks(&self) -> u8 {
         self.mbc.rom_banks()
     }
 
-    fn ram_banks(&self) -> u8 {
+    pub fn ram_banks(&self) -> u8 {
         self.mbc.ram_banks()
     }
 
-    fn rom_size(&self) -> u32 {
+    pub fn rom_size(&self) -> u32 {
         self.mbc.rom_size()
     }
 
-    fn ram_size(&self) -> u32 {
+    pub fn ram_size(&self) -> u32 {
         self.mbc.ram_size()
+    }
+}
+
+impl<T> From<T> for MBC
+where
+    T: MBCTrait + 'static,
+{
+    fn from(mbc: T) -> MBC {
+        MBC { mbc: Box::new(mbc) }
     }
 }
 

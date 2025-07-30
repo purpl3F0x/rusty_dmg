@@ -10,6 +10,8 @@ pub struct Color32 {
     pub a: u8,
 }
 
+#[allow(non_snake_case)]
+
 impl Color32 {
     pub const fn RGB(r: u8, g: u8, b: u8) -> Self {
         Self { r, g, b, a: 0xFF }

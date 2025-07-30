@@ -9,9 +9,6 @@ use egui::Key;
 use egui::TextureOptions;
 use egui::Ui;
 
-include!("shader_widget.rs");
-// use Custom3d;
-
 #[derive(serde::Deserialize, serde::Serialize)]
 #[serde(default)]
 pub struct App {
