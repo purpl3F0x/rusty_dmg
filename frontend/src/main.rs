@@ -150,8 +150,6 @@ fn main() {
     let eventloop = EventLoop::<UserEvent>::with_user_event().build().unwrap();
     eventloop.set_control_flow(ControlFlow::Poll);
 
-    std::thread::sleep(std::time::Duration::from_millis(1000));
-
     let mut winit_app = eframe::create_native(
         "Rusty-DMG",
         native_options,
