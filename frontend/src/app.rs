@@ -7,6 +7,7 @@ use std::sync::mpsc::Sender;
 use egui::ColorImage;
 use egui::Key;
 use egui::TextureOptions;
+use egui::Ui;
 
 include!("shader_widget.rs");
 // use Custom3d;
@@ -16,6 +17,7 @@ include!("shader_widget.rs");
 pub struct App {
     scale_factor: f32,
     running: bool,
+    show_debug: bool,
 
     #[serde(skip)]
     frame_ready: Arc<(Mutex<bool>, Condvar)>,
@@ -29,38 +31,35 @@ pub struct App {
     background_window: FrameWindow,
     #[serde(skip)]
     oam_window: FrameWindow,
+
+    screen_window_id: Option<egui::Id>,
+    background_window_id: Option<egui::Id>,
+    oam_window_id: Option<egui::Id>,
 }
 
 impl Default for App {
     fn default() -> Self {
+        let screen_window_id = Some(egui::Id::new("gameboy_frame"));
+        let background_window_id = Some(egui::Id::new("background_frame"));
+        let oam_window_id = Some(egui::Id::new("oam_frame"));
         Self {
             scale_factor: 1.0,
             running: true,
+            show_debug: true,
 
             frame_ready: Arc::default(),
 
             keypad_channel_sender: MaybeUninit::uninit(),
 
-            screen_window: FrameWindow::new(
-                egui::Id::new("gameboy_frame"),
-                "GameBoy".to_string(),
-                (160, 144),
-                Arc::default(),
-            ),
+            screen_window: FrameWindow::new("GameBoy".to_string(), Arc::default()),
 
-            background_window: FrameWindow::new(
-                egui::Id::new("background_frame"),
-                "Background".to_string(),
-                (256, 256),
-                Arc::default(),
-            ),
+            background_window: FrameWindow::new("Background".to_string(), Arc::default()),
 
-            oam_window: FrameWindow::new(
-                egui::Id::new("oam_frame"),
-                "OAM".to_string(),
-                (10 * 5, 10 * 8),
-                Arc::default(),
-            ),
+            oam_window: FrameWindow::new("OAM".to_string(), Arc::default()),
+
+            screen_window_id,
+            background_window_id,
+            oam_window_id,
         }
     }
 }
@@ -89,7 +88,7 @@ impl App {
         app.screen_window.image = screen_buffer;
         app.background_window.image = background_buffer;
         app.oam_window.image = sprites_buffer;
-        app.oam_window.scale_factor = 3.0;
+        app.oam_window.scale_factor = 2.0;
         app.keypad_channel_sender = MaybeUninit::new(keypad_channel_sender);
 
         app.screen_window.create_texture(&cc.egui_ctx);
@@ -122,23 +121,14 @@ impl eframe::App for App {
                         ctx.send_viewport_cmd(egui::ViewportCommand::Close);
                     }
                 });
+                ui.menu_button("Debug", |ui| {
+                    ui.checkbox(&mut self.show_debug, "Show Debug Panel");
+                });
             });
         });
 
-        egui::CentralPanel::default().show(ctx, |_ui| {});
-
-        self.screen_window.scale_factor = self.scale_factor;
-        self.screen_window.show(ctx);
-        self.background_window.show(ctx);
-        self.oam_window.show(ctx);
-
         egui::TopBottomPanel::bottom("bottom_panel").show(ctx, |ui| {
             ui.vertical(|ui| {
-                // ui.collapsing("Log", |ui| {
-                //     ui.add(egui::Label::new(
-                //         "Log output will appear here...\n\n\nHi...",
-                //     ));
-                // });
                 ui.horizontal(|ui| {
                     ui.with_layout(egui::Layout::left_to_right(egui::Align::Min), |ui| {
                         let time = ctx.input(|input| input.stable_dt);
@@ -155,6 +145,30 @@ impl eframe::App for App {
                     });
                 });
             });
+        });
+
+        egui::SidePanel::right("my_left_panel")
+            .resizable(false)
+            .show_animated(ctx, self.show_debug, |ui| {
+                ui.label(egui::RichText::new("Debug 🔍").size(26.0));
+
+                ui.separator();
+                ui.label(egui::RichText::new("Background").size(20.0));
+                self.background_window.show(ui);
+
+                ui.separator();
+                ui.label(egui::RichText::new("OAM").size(20.0));
+                self.oam_window.show(ui)
+            });
+
+        egui::CentralPanel::default().show(ctx, |ui| {
+            ui.with_layout(
+                egui::Layout::centered_and_justified(egui::Direction::TopDown),
+                |ui| {
+                    self.screen_window.scale_factor = self.scale_factor;
+                    self.screen_window.show(ui);
+                },
+            );
         });
 
         ctx.input(|input| {
@@ -180,32 +194,23 @@ impl eframe::App for App {
 }
 
 struct FrameWindow {
-    pub id: egui::Id,
     pub name: String,
-    pub size: (usize, usize),
     pub scale_factor: f32,
     pub image: Arc<Mutex<ColorImage>>,
     buffer_as_texture: Option<egui::TextureHandle>,
 }
 
 impl FrameWindow {
-    fn new(
-        id: egui::Id,
-        name: String,
-        size: (usize, usize),
-        image: Arc<Mutex<ColorImage>>,
-    ) -> Self {
+    fn new(name: String, image: Arc<Mutex<ColorImage>>) -> Self {
         Self {
-            id,
             name,
-            size,
             scale_factor: 1.0,
             image,
             buffer_as_texture: None,
         }
     }
 
-    pub fn create_texture(&mut self, ctx: &egui::Context) {
+    fn create_texture(&mut self, ctx: &egui::Context) {
         let image = self.image.lock().unwrap();
         self.buffer_as_texture = Some(ctx.load_texture(
             self.name.clone(),
@@ -218,25 +223,20 @@ impl FrameWindow {
         ));
     }
 
-    pub fn show(&mut self, ctx: &egui::Context) {
-        egui::Window::new(self.name.clone())
-            .default_pos([20.0, 20.0])
-            .resizable(false)
-            .show(ctx, |ui| {
-                let buffer_as_texture_mut = self.buffer_as_texture.as_mut().unwrap();
-                buffer_as_texture_mut.set(
-                    self.image.lock().unwrap().clone(),
-                    TextureOptions {
-                        magnification: egui::TextureFilter::Nearest,
-                        minification: egui::TextureFilter::Linear,
-                        ..Default::default()
-                    },
-                );
+    fn show(&mut self, ui: &mut Ui) {
+        let buffer_as_texture_mut = self.buffer_as_texture.as_mut().unwrap();
+        buffer_as_texture_mut.set(
+            self.image.lock().unwrap().clone(),
+            TextureOptions {
+                magnification: egui::TextureFilter::Nearest,
+                minification: egui::TextureFilter::Linear,
+                ..Default::default()
+            },
+        );
 
-                let img = egui::Image::from_texture(self.buffer_as_texture.as_ref().unwrap())
-                    .fit_to_original_size(self.scale_factor as f32);
+        let img = egui::Image::from_texture(self.buffer_as_texture.as_ref().unwrap())
+            .fit_to_original_size(self.scale_factor as f32);
 
-                ui.add(img);
-            });
+        ui.add(img);
     }
 }
