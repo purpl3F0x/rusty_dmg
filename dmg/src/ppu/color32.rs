@@ -2,7 +2,7 @@ use std::mem::{align_of, size_of};
 use std::slice;
 
 #[repr(C)]
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Color32 {
     pub r: u8,
     pub g: u8,

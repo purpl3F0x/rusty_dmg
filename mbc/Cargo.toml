@@ -11,3 +11,6 @@ path = "src/lib.rs"
 [[bin]]
 name = "mbc-info"
 path = "src/bin/mbc-info.rs"
+
+[dependencies]
+log = "0.4.27"

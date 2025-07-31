@@ -22,9 +22,11 @@ impl MBCTrait for NoMBC {
     fn read_rom(&self, address: u16) -> u8 {
         self.rom[address as usize]
     }
+
     fn write_rom(&mut self, _address: u16, _value: u8) {
         ()
     }
+
     fn read_ram(&self, _address: u16) -> u8 {
         0
     }

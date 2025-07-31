@@ -45,7 +45,7 @@ impl PPU {
             scan_line: 0,
             frame_counter: 0,
             line_counter: 0,
-            frame_buffer: [Color32::RGB(0x9a, 0x9e, 0x3f); 160 * 144],
+            frame_buffer: [Color32::RGB(220, 220, 159); 160 * 144],
             obj_scanline: [OAMEntry([0, 0, 0, 0]); 10],
             frame_ready: false,
             t_cycles: 0,
@@ -289,6 +289,10 @@ impl PPU {
 
                 let color_index = ((lo >> 7) & 0b1) | ((hi >> 6) & 0b10);
 
+                if color_index == 0 {
+                    continue; // Transparent pixel
+                }
+
                 let color = if s.dmg_palette() == false {
                     self.bgp_lut(&self.obj_palette_0, color_index)
                 } else {
@@ -296,7 +300,13 @@ impl PPU {
                 };
 
                 let idx = (self.ly as i32) * 160 + pixel_x;
-                self.frame_buffer[idx as usize] = color;
+                if s.priority() == true {
+                    if self.frame_buffer[idx as usize] == self.bgp_lut(&self.bg_palette, 0) {
+                        self.frame_buffer[idx as usize] = color;
+                    }
+                } else {
+                    self.frame_buffer[idx as usize] = color;
+                }
             }
         }
     }
@@ -411,7 +421,7 @@ impl PPU {
                     let x = 1 + block_x * 10 + col;
                     let y = 1 + block_y * 10 + row as usize;
 
-                    frame_buffer[y * 5 * 10 + x] = color // Dark gray for sprite background
+                    frame_buffer[y * 5 * 10 + x] = color
                 }
             }
         }
@@ -436,18 +446,18 @@ impl RegisterTrait for PPU {
     fn read(&self, address: u16) -> u8 {
         match address {
             VRAM_START..=VRAM_END => match self.mode {
-                PPUMode::PixelTransfer => {
-                    warn!("trying to read VRAM while in Pixel Transfer mode");
-                    0xFF
-                }
+                // PPUMode::PixelTransfer => {
+                //     warn!("trying to read VRAM while in Pixel Transfer mode");
+                //     0xFF
+                // }
                 _ => self.vram[(address - VRAM_START) as usize],
             },
 
             OAM_START..=OAM_END => match self.mode {
-                PPUMode::PixelTransfer | PPUMode::OAMSearch => {
-                    warn!("trying to read OAM while in Pixel Transfer or OAM Search mode");
-                    0xFF
-                }
+                // PPUMode::PixelTransfer | PPUMode::OAMSearch => {
+                //     warn!("trying to read OAM while in Pixel Transfer or OAM Search mode");
+                //     0xFF
+                // }
                 _ => self.oam[(address - OAM_START) as usize],
             },
 

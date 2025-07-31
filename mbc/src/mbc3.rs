@@ -1,7 +1,6 @@
 use crate::mbc::MBCTrait;
 use crate::mbc::{ram_banks, rom_banks};
 
-
 struct RTC {
     rtc_ram: [u8; 5],
 }

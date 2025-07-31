@@ -85,7 +85,7 @@ impl App {
         app.screen_window.image = screen_buffer;
         app.background_window.image = background_buffer;
         app.oam_window.image = sprites_buffer;
-        app.oam_window.scale_factor = 2.0;
+        app.oam_window.scale_factor = 4.0;
         app.keypad_channel_sender = MaybeUninit::new(keypad_channel_sender);
 
         app.screen_window.create_texture(&cc.egui_ctx);

@@ -18,8 +18,9 @@ use winit::event_loop::{ControlFlow, EventLoop};
 use flexi_logger::{DeferredNow, Logger, WriteMode};
 use log::Record;
 
-static DMG_ROM: &[u8] = include_bytes!("..\\..\\roms\\dmg_boot.bin");
-static TEST_ROM: &[u8] = include_bytes!("..\\..\\roms\\Tetris (JUE) (V1.1) [!].gb");
+static DMG_ROM: &[u8] = include_bytes!("../../roms/dmg_boot.bin");
+static TEST_ROM: &[u8] =
+    include_bytes!("../../roms/Pocket Monsters - Midori (Japan) (Rev 1) (SGB Enhanced).gb");
 
 pub fn no_info_format(
     w: &mut dyn std::io::Write,
@@ -30,7 +31,7 @@ pub fn no_info_format(
 }
 
 fn main() {
-    let _logger = Logger::try_with_str("warn, dmg=info")
+    let _logger = Logger::try_with_str("warn, dmg=info, mbc=debug")
         .unwrap()
         .write_mode(WriteMode::Async)
         // .format(no_info_format)
@@ -54,7 +55,7 @@ fn main() {
     )));
     let sprites_buffer = Arc::new(Mutex::new(egui::ColorImage::filled(
         [10 * 5, 10 * 8],
-        egui::Color32::PURPLE,
+        egui::Color32::TRANSPARENT,
     )));
 
     let screen_buffer_clone = screen_buffer.clone();
@@ -73,7 +74,7 @@ fn main() {
         // Create a new MBC
         let rom = mbc::MBC::new(TEST_ROM.to_vec());
 
-        log::info!("Starting emulator with ROM: {:?}", rom);
+        log::warn!("Starting emulator with ROM: {:?}", rom);
 
         let mmu: Rc<RefCell<MMU>> = MMU::new(Some(rom), bootrom.clone(), dma.clone());
 

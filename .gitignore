@@ -5,6 +5,7 @@ target/
 *.log
 *.bin
 *.gb
+*.sym
 *.ram
 
 docs/
