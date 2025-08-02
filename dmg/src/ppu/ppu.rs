@@ -32,7 +32,7 @@ impl PPU {
             oam: [0; 0xA0],
             vram: [0; 0x2000],
             lcd_control: LCDControlRegister(0),
-            lcd_status: LCDStatus(0),
+            lcd_status: LCDStatus(0b1000_0000),
             scroll_y: 0,
             scroll_x: 0,
             ly: 0x00,
@@ -495,7 +495,7 @@ impl RegisterTrait for PPU {
 
             LCDC => self.set_lcd_control(value),
             STAT => {
-                self.lcd_status.0 = (value & 0b0111_1000u8) | (self.lcd_status.0 & 0b0000_0111u8)
+                self.lcd_status.0 = (value & 0b0111_1000u8) | (self.lcd_status.0 & 0b1000_0111u8)
             }
             SCY => self.scroll_y = value,
             SCX => self.scroll_x = value,

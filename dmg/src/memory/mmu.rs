@@ -85,6 +85,7 @@ impl MMU {
                 IF => self.ic.borrow().interrupt_flag.0,
                 DIV..=TAC => self.timer.read(addr),
                 LCDC..=LYC => self.ppu.read(addr),
+                DMA => self.dma.borrow().read(addr),
                 BGP..=WX => self.ppu.read(addr),
                 R_BANK => self.boot_rom.read(addr),
                 _ => {
@@ -129,11 +130,11 @@ impl MMU {
             // IO Registers
             0xFF00..=0xFF7F => match addr {
                 P1_JOYP => self.joypad.write(value),
-                IF => self.ic.borrow_mut().interrupt_flag.0 = value,
+                IF => self.ic.borrow_mut().interrupt_flag.0 = 0b1110_0000 | value,
                 DIV..=TAC => self.timer.write(addr, value),
                 DMA => {
                     let mut dma = self.dma.borrow_mut();
-                    dma.write(addr, value);
+                    dma.write(DMA, value);
                 }
                 R_BANK => self.boot_rom.write(addr, value),
                 LCDC..=LYC => self.ppu.write(addr, value),

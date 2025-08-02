@@ -25,7 +25,7 @@ impl Timer {
             div: 0,
             tima: 0,
             tma: 0,
-            tac: TimerControlRegister(0),
+            tac: TimerControlRegister(0b1111_1000),
             step: 1,
         }
     }
@@ -62,7 +62,7 @@ impl RegisterTrait for Timer {
             DIV => (self.div >> 8) as u8,
             TIMA => (self.tima >> 8) as u8,
             TMA => self.tma as u8,
-            TAC => self.tac.0 & 0b111,
+            TAC => self.tac.0,
             _ => unreachable!(),
         }
     }
@@ -79,7 +79,7 @@ impl RegisterTrait for Timer {
             TIMA => self.tima = ((value as u16) << 8) & (self.tima as u16),
             TMA => self.tma = (value as u16) << 8,
             TAC => {
-                self.tac.0 = value & 0b111;
+                self.tac.0 = value | 0b1111_1000;
                 self.step = self.tima_divider_step();
             }
             _ => unreachable!(),

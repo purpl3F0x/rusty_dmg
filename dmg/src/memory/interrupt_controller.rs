@@ -21,8 +21,8 @@ pub struct InterruptController {
 impl InterruptController {
     pub fn new() -> Self {
         InterruptController {
-            interrupt_enable: InterruptsRegister(0),
-            interrupt_flag: InterruptsRegister(0),
+            interrupt_enable: InterruptsRegister(0b1110_0000),
+            interrupt_flag: InterruptsRegister(0b1110_0000),
         }
     }
 
