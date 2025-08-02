@@ -5,11 +5,13 @@ pub struct MBC5 {
     rom: Vec<u8>,
     ram: Vec<u8>,
     has_battery: bool,
-    rom_banks: u8,
+    rom_banks: u16,
     ram_banks: u8,
     active_rom_back: u16,
+    rom_upper_bank_offset: i32,
     active_ram_back: u8,
     ram_enabled: bool,
+    ram_offset: i32,
 }
 
 impl MBC5 {
@@ -19,13 +21,15 @@ impl MBC5 {
 
         MBC5 {
             rom,
-            ram: vec![0; 0 as usize],
+            ram: vec![0; ram_size as usize],
             has_battery,
             rom_banks,
             ram_banks,
-            active_rom_back: 0,
+            active_rom_back: 1,
+            rom_upper_bank_offset: 0,
             active_ram_back: 0,
             ram_enabled: false,
+            ram_offset: -0xA000,
         }
     }
 }
@@ -48,7 +52,11 @@ impl MBCTrait for MBC5 {
     }
 
     fn read_rom(&self, address: u16) -> u8 {
-        self.rom[address as usize]
+        if address < 0x4000 {
+            self.rom[address as usize]
+        } else {
+            self.rom[(address as i32 + self.rom_upper_bank_offset) as usize]
+        }
     }
 
     fn write_rom(&mut self, address: u16, value: u8) {
@@ -59,15 +67,20 @@ impl MBCTrait for MBC5 {
             }
             // ROM bank select ( lower 8 bits )
             0x2000..=0x2FFF => {
-                self.active_rom_back = value as u16;
+                self.active_rom_back = (self.active_rom_back & 0x100) | (value as u16 & 0xFF);
+                self.active_rom_back &= self.rom_banks - 1;
+                self.rom_upper_bank_offset = (self.active_rom_back as i32 - 1) * 0x4000;
             }
             // ROM bank select ( 9th bit )
             0x3000..=0x3FFF => {
-                self.active_rom_back |= (value as u16 & 0x01) << 8;
+                self.active_rom_back = (self.active_rom_back & 0xFF) | (value as u16 & 0b1) << 1;
+                self.active_rom_back &= self.rom_banks - 1;
+                self.rom_upper_bank_offset = (self.active_rom_back as i32 - 1) * 0x4000;
             }
             // RAM bank select
             0x4000..=0x5FFF => {
                 self.active_ram_back = (value & 0x0F) % self.ram_banks;
+                self.ram_offset = self.active_ram_back as i32 * 0x2000 - 0xA000;
             }
 
             _ => {}
@@ -79,7 +92,7 @@ impl MBCTrait for MBC5 {
             return 0xFF;
         }
 
-        let idx = self.active_ram_back as usize * 0x2000 | (address as usize & 0x1FFF);
+        let idx = (address as i32 + self.ram_offset) as usize;
         self.ram[idx]
     }
 
@@ -100,7 +113,7 @@ impl MBCTrait for MBC5 {
         self.ram.clone()
     }
 
-    fn rom_banks(&self) -> u8 {
+    fn rom_banks(&self) -> u16 {
         self.rom_banks
     }
 

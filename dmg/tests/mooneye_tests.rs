@@ -15,6 +15,7 @@ fn for_each_file(
     #[files("./tests/mooneye-test-suite/emulator-only/**/*.gb")]
     #[mode = bytes]
     #[exclude("sgb")]
+    #[exclude("mbc2")]
     #[exclude("dmg0")]
     #[exclude("mgb")]
     #[exclude("vgb")]

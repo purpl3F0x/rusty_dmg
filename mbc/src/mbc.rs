@@ -3,8 +3,10 @@ use crate::mbc3::MBC3;
 use crate::mbc5::MBC5;
 use crate::no_mbc::NoMBC;
 
-pub fn rom_banks(rom_size: u32) -> u8 {
-    (rom_size / (16 * 1024)) as u8
+pub fn rom_banks<T: TryFrom<u32>>(rom_size: u32) -> T {
+    let banks = rom_size / (16 * 1024);
+
+    T::try_from(banks).unwrap_or_else(|_| panic!("Invalid ROM banks: {}", banks))
 }
 
 pub fn ram_banks(ram_size: u32) -> u8 {
@@ -36,7 +38,7 @@ pub trait MBCTrait: Send {
         false
     }
 
-    fn rom_banks(&self) -> u8 {
+    fn rom_banks(&self) -> u16 {
         2
     }
 
@@ -158,7 +160,7 @@ impl MBC {
         self.mbc.dump_ram()
     }
 
-    pub fn rom_banks(&self) -> u8 {
+    pub fn rom_banks(&self) -> u16 {
         self.mbc.rom_banks()
     }
 

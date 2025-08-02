@@ -123,8 +123,8 @@ impl MBCTrait for MBC3 {
         self.ram.clone()
     }
 
-    fn rom_banks(&self) -> u8 {
-        self.rom_banks
+    fn rom_banks(&self) -> u16 {
+        self.rom_banks as u16
     }
 
     fn ram_banks(&self) -> u8 {
