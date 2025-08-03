@@ -98,7 +98,7 @@ mod tests {
         let mut ic = InterruptController::new();
 
         for i in 1..42 {
-            for _ in 0..256 {
+            for _ in 0..64 {
                 timer.tick(&mut ic);
             }
 
