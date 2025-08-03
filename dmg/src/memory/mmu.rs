@@ -2,6 +2,7 @@ use super::*;
 
 use crate::joypad::Joypad;
 use crate::ppu::PPU;
+use crate::serial::Serial;
 use crate::timer::Timer;
 
 use log::warn;
@@ -21,6 +22,7 @@ pub struct MMU {
     pub ppu: PPU,
     pub timer: Timer,
     pub joypad: Joypad,
+    pub serial: Serial,
 }
 
 impl MMU {
@@ -40,6 +42,7 @@ impl MMU {
             ppu: ppu,
             timer: Timer::new(),
             joypad: joypad,
+            serial: Serial::new(),
         }));
 
         mmu.clone()
@@ -47,6 +50,7 @@ impl MMU {
 
     pub fn tick(&mut self) {
         self.timer.tick(&mut self.ic.borrow_mut());
+        self.serial.tick(&mut self.ic.borrow_mut());
 
         let res = self.dma.tick();
         if let Some(src) = res {
@@ -92,6 +96,8 @@ impl MMU {
             // IO Registers
             0xFF00..=0xFF7F => match addr {
                 P1_JOYP => self.joypad.read(),
+                SB => self.serial.read_data(),
+                SC => self.serial.read_control(),
                 IF => self.ic.borrow().interrupt_flag.0,
                 DIV..=TAC => self.timer.read(addr),
                 LCDC..=LYC => self.ppu.read(addr),
@@ -166,6 +172,8 @@ impl MMU {
             // IO Registers
             0xFF00..=0xFF7F => match addr {
                 P1_JOYP => self.joypad.write(value),
+                SB => self.serial.write_data(value),
+                SC => self.serial.write_control(value),
                 IF => self.ic.borrow_mut().interrupt_flag.0 = 0b1110_0000 | value,
                 DIV..=TAC => self.timer.write(addr, value),
                 DMA => {
