@@ -1,8 +1,4 @@
 use super::RegisterTrait;
-use super::MMU;
-
-use std::cell::RefCell;
-use std::rc::Weak;
 
 #[derive(Debug)]
 pub struct DMA {
@@ -10,41 +6,47 @@ pub struct DMA {
     next_addr: u16,
     enabled: bool,
     starting: bool,
-    pub mmu: Weak<RefCell<MMU>>,
+    starting_sync: bool,
 }
 
 impl DMA {
-    pub fn new(mmu: Weak<RefCell<MMU>>) -> Self {
+    pub fn new() -> Self {
         DMA {
             source: 0,
             next_addr: 0,
-            starting: false,
             enabled: false,
-            mmu,
+            starting: false,
+            starting_sync: false,
         }
     }
 
-    pub fn tick(&mut self) {
-        if self.enabled {
-            let mmu_rc = self.mmu.upgrade().unwrap();
-            let src_addr = self.next_addr;
-            let dst_addr = 0xFE00 | (self.next_addr & 0xFF);
+    #[inline(always)]
+    pub fn tick(&mut self) -> Option<u16> {
+        let mut ret = None;
 
-            let value = mmu_rc.borrow().read(src_addr);
-            mmu_rc.borrow_mut().write(dst_addr, value);
+        if self.starting_sync {
+            self.enabled = true;
+            self.starting = false;
+            self.next_addr = (self.source as u16) << 8;
+        }
+
+        self.starting_sync = self.starting;
+        self.starting = false;
+
+        if self.enabled {
+            let src_addr = self.next_addr;
+
+            ret = Some(src_addr);
 
             self.next_addr += 1;
 
             if src_addr as u8 > 0x9F {
                 self.enabled = false;
+                ret = None;
             }
         }
 
-        if self.starting {
-            self.enabled = true;
-            self.starting = false;
-            self.next_addr = (self.source as u16) << 8;
-        }
+        ret
     }
 
     pub fn is_enabled(&self) -> bool {

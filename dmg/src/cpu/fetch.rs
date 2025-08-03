@@ -3,15 +3,15 @@ use super::*;
 impl CPU {
     #[inline(always)]
     pub(super) fn read_byte(&mut self, addr: u16) -> u8 {
-        let value = self.mmu.borrow().read(addr);
         self.tick4();
+        let value = self.mmu.borrow().read(addr);
         value
     }
 
     #[inline(always)]
     pub(super) fn write_byte(&mut self, addr: u16, byte: u8) {
-        self.mmu.borrow_mut().write(addr, byte);
         self.tick4();
+        self.mmu.borrow_mut().write(addr, byte);
     }
 
     #[inline(always)]

@@ -1,6 +1,5 @@
-use std::rc::Weak;
 
-use crate::memory::{BootRom, DMA, MMU};
+use crate::memory::{BootRom, MMU};
 
 use mbc;
 
@@ -54,9 +53,7 @@ fn run_test<I: Fn(&mut TestHardware) -> ()>(instructions: &[u8], init: I) -> Tes
     let mut boot_rom = BootRom::new();
     boot_rom.enabled = false;
 
-    let dma = Rc::new(RefCell::new(DMA::new(Weak::new())));
-
-    let mmu: Rc<RefCell<MMU>> = MMU::new(Some(mbc), boot_rom, dma.clone());
+    let mmu: Rc<RefCell<MMU>> = MMU::new(Some(mbc), boot_rom);
     let mut test_hardware = TestHardware {
         cpu: CPU::new(mmu),
         instruction_counter: 0,

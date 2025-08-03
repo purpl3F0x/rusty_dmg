@@ -17,14 +17,14 @@ pub struct MMU {
     pub ic: Rc<RefCell<InterruptController>>,
 
     pub boot_rom: BootRom,
-    pub dma: Rc<RefCell<DMA>>,
+    pub dma: DMA,
     pub ppu: PPU,
     pub timer: Timer,
     pub joypad: Joypad,
 }
 
 impl MMU {
-    pub fn new(rom: Option<MBC>, boot_rom: BootRom, dma: Rc<RefCell<DMA>>) -> Rc<RefCell<MMU>> {
+    pub fn new(rom: Option<MBC>, boot_rom: BootRom) -> Rc<RefCell<MMU>> {
         let ic = Rc::new(RefCell::new(InterruptController::new()));
 
         let ppu = PPU::new(ic.clone());
@@ -36,14 +36,11 @@ impl MMU {
             hram: [0; 0x007F],
             ic: ic,
             boot_rom: boot_rom,
-            dma: dma.clone(),
+            dma: DMA::new(),
             ppu: ppu,
             timer: Timer::new(),
             joypad: joypad,
         }));
-
-        // Set the DMA's mmu weak reference
-        dma.borrow_mut().mmu = Rc::downgrade(&mmu);
 
         mmu.clone()
     }
@@ -51,11 +48,24 @@ impl MMU {
     pub fn tick(&mut self) {
         self.timer.tick(&mut self.ic.borrow_mut());
 
-        // self.dma.borrow_mut().tick();
+        let res = self.dma.tick();
+        if let Some(src) = res {
+            let dst_idx = src as u8;
+            let src_data = self.read_dma(src);
+            self.ppu.oam[dst_idx as usize] = src_data;
+        }
     }
 
     #[inline(always)]
     pub fn read(&self, addr: u16) -> u8 {
+        if self.dma.is_enabled() && addr <= 0xFF00 {
+            log::error!(
+                "Attempt to read from OAM during DMA transfer at address {:#04X}",
+                addr
+            );
+            return 0xFF; // Return 0xFF to avoid reading from OAM during DMA transfer
+        }
+
         match addr {
             // ROM Bank 0
             0x0000..=0x3FFF => {
@@ -72,9 +82,9 @@ impl MMU {
             // External RAM
             0xA000..=0xBFFF => self.cartridge.read_ram(addr),
             // Work RAM
-            0xC000..=0xDFFF => self.wram[(addr - 0xC000) as usize],
+            0xC000..=0xDFFF => self.wram[(addr & 0x1FFF) as usize],
             // Echo RAM - Copy of Work RAM
-            0xE000..=0xFDFF => self.wram[(addr - 0xE000) as usize],
+            0xE000..=0xFDFF => self.wram[(addr & 0x1FFF) as usize],
             // OAM
             0xFE00..=0xFE9F => self.ppu.read(addr),
             // Unusable memory
@@ -85,9 +95,9 @@ impl MMU {
                 IF => self.ic.borrow().interrupt_flag.0,
                 DIV..=TAC => self.timer.read(addr),
                 LCDC..=LYC => self.ppu.read(addr),
-                DMA => self.dma.borrow().read(addr),
+                DMA => self.dma.read(DMA),
                 BGP..=WX => self.ppu.read(addr),
-                R_BANK => self.boot_rom.read(addr),
+                R_BANK => self.boot_rom.read(R_BANK),
                 _ => {
                     warn!("Read from IO Register {:#04X} is not implemented", addr);
                     0xFF
@@ -97,6 +107,32 @@ impl MMU {
             0xFF80..=0xFFFE => self.hram[(addr - 0xFF80) as usize],
             // Interrupt Enable Register
             IE => self.ic.borrow().interrupt_enable.0,
+        }
+    }
+
+    #[inline(always)]
+    pub fn read_dma(&self, addr: u16) -> u8 {
+        match addr {
+            // ROM Bank 0
+            0x0000..=0x3FFF => {
+                if self.boot_rom.enabled && addr < 0x0100 {
+                    self.boot_rom.read(addr)
+                } else {
+                    self.cartridge.read_rom(addr)
+                }
+            }
+            // ROM Bank 1-N
+            0x4000..=0x7FFF => self.cartridge.read_rom(addr),
+            // VRAM
+            0x8000..=0x9FFF => self.ppu.read(addr),
+            // External RAM
+            0xA000..=0xBFFF => self.cartridge.read_ram(addr),
+            // Work RAM
+            0xC000..=0xDFFF => self.wram[(addr & 0x1FFF) as usize],
+            // Echo RAM - Copy of Work RAM
+            0xE000..=0xFDFF => self.wram[(addr & 0x1FFF) as usize],
+            // OAM
+            0xFE00..=0xFFFF => self.wram[(addr & 0x1FFF) as usize],
         }
     }
 
@@ -120,9 +156,9 @@ impl MMU {
             // External RAM
             0xA000..=0xBFFF => self.cartridge.write_ram(addr, value),
             // Work RAM
-            0xC000..=0xDFFF => self.wram[(addr - 0xC000) as usize] = value,
+            0xC000..=0xDFFF => self.wram[(addr & 0x1FFF) as usize] = value,
             // Echo RAM - Copy of Work RAM
-            0xE000..=0xFDFF => self.wram[(addr - 0xE000) as usize] = value,
+            0xE000..=0xFDFF => self.wram[(addr & 0x1FFF) as usize] = value,
             // OAM
             0xFE00..=0xFE9F => self.ppu.write(addr, value),
             // Unusable memory
@@ -133,10 +169,9 @@ impl MMU {
                 IF => self.ic.borrow_mut().interrupt_flag.0 = 0b1110_0000 | value,
                 DIV..=TAC => self.timer.write(addr, value),
                 DMA => {
-                    let mut dma = self.dma.borrow_mut();
-                    dma.write(DMA, value);
+                    self.dma.write(DMA, value);
                 }
-                R_BANK => self.boot_rom.write(addr, value),
+                R_BANK => self.boot_rom.write(R_BANK, value),
                 LCDC..=LYC => self.ppu.write(addr, value),
                 BGP..=WX => self.ppu.write(addr, value),
 

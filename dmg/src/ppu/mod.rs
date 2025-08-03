@@ -71,8 +71,8 @@ bitfield! {
 
 #[derive(Debug)]
 pub struct PPU {
-    vram: [u8; 0x2000],
-    oam: [u8; 0x00A0],
+    pub(crate) vram: [u8; 0x2000],
+    pub(crate) oam: [u8; 0x00A0],
     // Registers
     lcd_control: LCDControlRegister,
     lcd_status: LCDStatus,

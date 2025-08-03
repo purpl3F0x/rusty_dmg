@@ -5,7 +5,6 @@ use dmg::memory::*;
 use std::cell::RefCell;
 use std::io::Read;
 use std::rc::Rc;
-use std::rc::Weak;
 
 use rstest::*;
 
@@ -31,10 +30,9 @@ fn test_mooneye_rom(rom: &[u8]) {
     let mut bootrom = BootRom::new();
     let _ = bootrom.load(include_bytes!("../../roms/dmg_boot.bin"));
 
-    let dma = Rc::new(RefCell::new(dmg::memory::dma::DMA::new(Weak::new())));
     let rom = mbc::MBC::new(rom.to_vec());
 
-    let mmu: Rc<RefCell<MMU>> = MMU::new(Some(rom), bootrom.clone(), dma.clone());
+    let mmu: Rc<RefCell<MMU>> = MMU::new(Some(rom), bootrom.clone());
 
     let mut cpu = CPU::new(mmu.clone());
 
