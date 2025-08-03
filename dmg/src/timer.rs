@@ -75,7 +75,7 @@ impl RegisterTrait for Timer {
                 self.div = 0;
                 self.tima &= 0xFF00;
             }
-            TIMA => self.tima = ((value as u16) << 8) & (self.tima as u16),
+            TIMA => self.tima = (value as u16) << 8,
             TMA => self.tma = (value as u16) << 8,
             TAC => {
                 self.tac.0 = value | 0b1111_1000;
