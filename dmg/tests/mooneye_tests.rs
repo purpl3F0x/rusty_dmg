@@ -14,6 +14,7 @@ fn for_each_file(
     #[files("./tests/mooneye-test-suite/emulator-only/**/*.gb")]
     #[mode = bytes]
     #[exclude("sgb")]
+    #[exclude("manual-only")]
     #[exclude("mbc2")]
     #[exclude("dmg0")]
     #[exclude("mgb")]
@@ -21,6 +22,7 @@ fn for_each_file(
     #[exclude("agb")]
     #[exclude("ags")]
     #[exclude("-S")]
+    #[exclude("-C")]
     rom: &[u8],
 ) {
     test_mooneye_rom(rom);
