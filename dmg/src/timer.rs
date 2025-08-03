@@ -31,7 +31,7 @@ impl Timer {
     }
 
     pub fn tick(&mut self, ic: &mut InterruptController) {
-        self.div = self.div.wrapping_add(1);
+        self.div = self.div.wrapping_add(4);
 
         if self.tac.enable() {
             let overflow;
@@ -68,14 +68,13 @@ impl RegisterTrait for Timer {
     }
 
     fn write(&mut self, address: u16, value: u8) {
-        log::trace!(
-            "Timer write: address: {:#04X}, value: {:#04X}",
-            address,
-            value
-        );
-
         match address {
-            DIV => self.div = 0, // Writing to DIV resets it
+            DIV => {
+                // Writing to DIV resets it
+                // There is a global shared, so lower part of TIMA is reset also
+                self.div = 0;
+                self.tima &= 0xFF00;
+            }
             TIMA => self.tima = ((value as u16) << 8) & (self.tima as u16),
             TMA => self.tma = (value as u16) << 8,
             TAC => {
