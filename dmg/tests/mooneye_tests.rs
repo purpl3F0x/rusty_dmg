@@ -3,26 +3,26 @@ use dmg::memory::MMU;
 use dmg::memory::*;
 
 use std::cell::RefCell;
-use std::io::Read;
 use std::rc::Rc;
 
 use rstest::*;
 
 #[rstest]
-fn for_each_file(
+fn mooneye_test(
     #[files("./tests/mooneye-test-suite/**/**/*.gb")]
     #[files("./tests/mooneye-test-suite/emulator-only/**/*.gb")]
     #[mode = bytes]
     #[exclude("sgb")]
     #[exclude("manual-only")]
-    #[exclude("mbc2")]
     #[exclude("dmg0")]
     #[exclude("mgb")]
     #[exclude("vgb")]
+    #[exclude("cgb")]
     #[exclude("agb")]
     #[exclude("ags")]
     #[exclude("-S")]
     #[exclude("-C")]
+    #[exclude("-A")]
     rom: &[u8],
 ) {
     test_mooneye_rom(rom);
